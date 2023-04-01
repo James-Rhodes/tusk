@@ -1,3 +1,4 @@
+use dir_creator::create_schema_dirs;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Row;
 use futures::TryStreamExt;
@@ -10,7 +11,8 @@ mod dir_creator;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 
-    dotenvy::dotenv().ok();
+    dir_creator::init_directory_structure()?;
+    dotenvy::from_filename("./.dbtvc/.env")?;
 
     let db_user = dotenvy::var("DB_USER")?;
     let db_pass = dotenvy::var("DB_PASSWORD")?;
@@ -34,6 +36,5 @@ async fn main() -> anyhow::Result<()> {
         println!("value: {:?}, text: {:?}", value,text);
     } 
 
-    dir_creator::init_directory_structure()?;
     Ok(())
 }
