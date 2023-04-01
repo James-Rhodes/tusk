@@ -2,6 +2,7 @@ use clap::{Parser,Subcommand};
 
 use crate::actions::Action as CliAction;
 use crate::actions::init::Init;
+use crate::actions::refresh_inventory::RefreshInventory;
 
 #[derive(Debug, Parser)]
 #[clap(author,version,about)]
@@ -25,7 +26,7 @@ pub enum Action {
 
     /// Creates a list of all schemas, tables and functions within the Database defined by the
     /// connection in ./.dbtvc/.env
-    RefreshInventory
+    RefreshInventory(RefreshInventory)
 }
 
 impl Action {
@@ -34,7 +35,7 @@ impl Action {
             Self::Init(init) => init.execute(),
             Self::Sync => todo!(),
             Self::Push => todo!(),
-            Self::RefreshInventory => todo!()
+            Self::RefreshInventory(ri) => ri.execute()
         }?;
 
         return Ok(());
