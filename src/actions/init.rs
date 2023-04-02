@@ -1,5 +1,7 @@
-use super::Action;
 use clap::Args;
+use async_trait::async_trait;
+
+use crate::actions::Action;
 
 #[derive(Debug, Args)]
 pub struct Init {}
@@ -21,8 +23,9 @@ impl Init {
     }
 }
 
+#[async_trait]
 impl Action for Init {
-    fn execute(&self) -> anyhow::Result<()> {
+    async fn execute(&self) -> anyhow::Result<()> {
 
         println!("Initialising the required directory structure and creating template .env file...");
         self.init_directories()?;

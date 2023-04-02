@@ -1,18 +1,17 @@
-use clap::{Parser,Subcommand};
+use clap::{Parser, Subcommand};
 
-use crate::actions::Action as CliAction;
 use crate::actions::init::Init;
 use crate::actions::refresh_inventory::RefreshInventory;
+use crate::actions::Action as CliAction;
 
 #[derive(Debug, Parser)]
-#[clap(author,version,about)]
+#[clap(author, version, about)]
 pub struct CliArgs {
     #[clap(subcommand)]
-    pub action: Action
+    pub action: Action,
 }
 
-
-#[derive(Debug,Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum Action {
     /// Initialise the current directory for version control. Creates all necessary config files
     /// and a schema folder.
@@ -26,19 +25,19 @@ pub enum Action {
 
     /// Creates a list of all schemas, tables and functions within the Database defined by the
     /// connection in ./.dbtvc/.env
-    RefreshInventory(RefreshInventory)
+    RefreshInventory(RefreshInventory),
 }
 
 impl Action {
-    pub fn execute(&self) -> anyhow::Result<()>{
+    pub async fn execute(&self) -> anyhow::Result<()> {
         match self {
             Self::Init(init) => init.execute(),
             Self::Sync => todo!(),
             Self::Push => todo!(),
-            Self::RefreshInventory(ri) => ri.execute()
-        }?;
+            Self::RefreshInventory(ri) => ri.execute(),
+        }
+        .await?;
 
         return Ok(());
-
     }
 }
