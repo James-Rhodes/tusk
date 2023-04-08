@@ -12,8 +12,12 @@ struct DbEnvVars {
 }
 
 pub async fn get_db_connection() -> Result<PgPool> {
-
-    let DbEnvVars {db_user,db_pass,db_port,db_name} = get_db_env_vars()?;
+    let DbEnvVars {
+        db_user,
+        db_pass,
+        db_port,
+        db_name,
+    } = get_db_env_vars()?;
 
     let connection_string = format!("postgres://{}:{}@{}/{}", db_user, db_pass, db_port, db_name);
 
