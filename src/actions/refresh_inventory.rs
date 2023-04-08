@@ -41,6 +41,7 @@ impl RefreshInventory {
         let change_status = config_file_manager::update_file_contents_from_db(
             SCHEMA_CONFIG_LOCATION,
             db_schema_list,
+            true
         )?;
 
         // There was nothing in the schema config file to begin with and so it is the first load.
