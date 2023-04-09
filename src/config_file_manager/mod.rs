@@ -66,7 +66,7 @@ pub fn update_file_contents_from_db(
     // sorted vecs
 
     let mut local_file_contents = std::fs::read_to_string(file_path).expect(&format!(
-        "The schema config file found at {} should exist",
+        "The config file found at {} should exist",
         file_path
     ));
 
