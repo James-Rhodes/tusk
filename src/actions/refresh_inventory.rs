@@ -185,6 +185,44 @@ impl RefreshInventory {
 
         return Ok(());
     }
+    async fn refresh_data_types_list(&self, pool: &PgPool) -> Result<()> {
+        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+
+        for schema in approved_schemas? {
+            let mut config_path = format!("./.dbtvc/config/schemas/{}", schema);
+            std::fs::create_dir_all(&config_path)
+                .expect("Should be able to create the required directories");
+            config_path = config_path + "/data_types_to_include.conf";
+
+            // Create the file that will contain the function config if it does not already exist
+            if !std::path::Path::new(&config_path).exists() {
+                std::fs::write(&config_path, "")?;
+            }
+
+            self.refresh_list(
+                pool,
+                &format!(
+                    "
+                        SELECT t.typname as data_type 
+                        FROM pg_type t 
+                        LEFT JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace 
+                        WHERE (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid)) 
+                        AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem AND el.typarray = t.oid)
+                        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+                        AND n.nspname = '{}';
+                    ",
+                    schema
+                ),
+                "data_type",
+                &config_path,
+                &format!("The schema: \"{}\" has had its custom data types", schema),
+                false,
+            )
+            .await?;
+        }
+
+        return Ok(());
+    }
 }
 
 #[async_trait]
@@ -200,6 +238,7 @@ impl Action for RefreshInventory {
         self.refresh_function_lists(&pool).await?;
         self.refresh_table_ddl_list(&pool).await?;
         self.refresh_table_data_list(&pool).await?;
+        self.refresh_data_types_list(&pool).await?;
         return Ok(());
     }
 }
