@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use crate::actions::init::Init;
+use crate::actions::{init::Init,sync::Sync};
 use crate::actions::refresh_inventory::RefreshInventory;
 use crate::actions::Action as CliAction;
 
@@ -18,7 +18,7 @@ pub enum Action {
     Init(Init),
 
     /// Sync the local database DDL with what is currently on the database.
-    Sync,
+    Sync(Sync),
 
     /// Push the changes in the local DDL to the database
     Push,
@@ -32,7 +32,7 @@ impl Action {
     pub async fn execute(&self) -> anyhow::Result<()> {
         match self {
             Self::Init(init) => init.execute(),
-            Self::Sync => todo!(),
+            Self::Sync(sync) => sync.execute(),
             Self::Push => todo!(),
             Self::RefreshInventory(ri) => ri.execute(),
         }
