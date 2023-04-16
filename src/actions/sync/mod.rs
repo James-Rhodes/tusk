@@ -42,7 +42,7 @@ pub struct Sync {
 
 impl Sync {
     async fn sync_all<T: syncers::Syncer>(pool: &PgPool, schema_name: &str) -> Result<()> {
-        let mut all_ddl = T::get_all(pool, schema_name);
+        let mut all_ddl = T::get_all(pool, schema_name)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
@@ -72,7 +72,31 @@ impl Sync {
         schema_name: &str,
         items: &Vec<String>,
     ) -> Result<()> {
-        todo!();
+
+        let mut all_ddl = T::get(pool, schema_name, items)?;
+
+        while let Some(ddl) = all_ddl.try_next().await? {
+            // TODO: Make this async as well.
+            let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
+            let parent_dir =
+                std::path::Path::new(&file_path)
+                    .parent()
+                    .ok_or(anyhow::Error::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!(
+                            "The directory {} is invalid for writing files to...",
+                            file_path
+                        ),
+                    )))?;
+
+            if !parent_dir.exists() {
+                std::fs::create_dir_all(parent_dir)?;
+            }
+
+            std::fs::write(file_path, ddl.definition)?;
+        }
+
+        return Ok(());
     }
 
     async fn sync<T: syncers::Syncer>(
@@ -87,7 +111,7 @@ impl Sync {
                 Self::sync_all::<T>(pool, schema_name).await?;
             } else {
                 // Run a sync on the items in input_items
-                Self::sync_some::<T>(pool,schema_name, input_items).await?;
+                Self::sync_some::<T>(pool, schema_name, input_items).await?;
             }
         }
         return Ok(());
@@ -97,12 +121,12 @@ impl Sync {
 #[async_trait]
 impl Action for Sync {
     async fn execute(&self) -> anyhow::Result<()> {
-
         let pool = db_manager::get_db_connection().await?;
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
         for schema in approved_schemas {
-            self.sync::<FunctionSyncer>(&pool, &schema, &self.function).await?;
+            self.sync::<FunctionSyncer>(&pool, &schema, &self.function)
+                .await?;
         }
         return Ok(());
     }

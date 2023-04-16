@@ -8,11 +8,21 @@ pub struct ChangeStatus {
     pub amount_before_change: u32,
 }
 
-// pub fn format_config_file(file_path: &str) -> Result<()> {
-//     todo!();
-// }
+pub fn format_config_file(file_path: &str) -> Result<()> {
+    let local_file_contents = std::fs::read_to_string(file_path).expect(&format!(
+        "The config file found at {} should exist",
+        file_path
+    ));
 
-pub fn format_config_file_contents(
+    std::fs::write(
+        file_path,
+        format_config_file_contents(&local_file_contents, &None).join("\n"),
+    )?;
+
+    return Ok(());
+}
+
+fn format_config_file_contents(
     file_contents: &str,
     to_filter_out: &Option<&HashSet<&String>>,
 ) -> Vec<String> {
