@@ -7,7 +7,7 @@ use sqlx::PgPool;
 
 use crate::{actions::Action, config_file_manager::get_uncommented_file_contents, db_manager};
 
-use self::syncers::function_syncer::FunctionSyncer;
+use self::syncers::{function_syncer::FunctionSyncer, table_ddl_syncer::TableDDLSyncer};
 
 use super::init::SCHEMA_CONFIG_LOCATION;
 
@@ -72,7 +72,6 @@ impl Sync {
         schema_name: &str,
         items: &Vec<String>,
     ) -> Result<()> {
-
         let mut all_ddl = T::get(pool, schema_name, items)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
@@ -126,6 +125,8 @@ impl Action for Sync {
 
         for schema in approved_schemas {
             self.sync::<FunctionSyncer>(&pool, &schema, &self.function)
+                .await?;
+            self.sync::<TableDDLSyncer>(&pool, &schema, &self.table_ddl)
                 .await?;
         }
         return Ok(());

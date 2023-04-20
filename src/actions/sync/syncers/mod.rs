@@ -1,4 +1,5 @@
 pub mod function_syncer;
+pub mod table_ddl_syncer;
 
 use std::pin::Pin;
 
