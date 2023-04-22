@@ -5,6 +5,6 @@ Cargo.lock
 
 **/*.rs.bk
 
-.dbtvc
+.tusk
 .env
 schemas

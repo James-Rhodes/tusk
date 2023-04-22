@@ -83,7 +83,7 @@ impl RefreshInventory {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
 
         for schema in approved_schemas? {
-            let mut config_path = format!("./.dbtvc/config/schemas/{}", schema);
+            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
             std::fs::create_dir_all(&config_path)
                 .expect("Should be able to create the required directories");
             config_path = config_path + "/functions_to_include.conf";
@@ -120,7 +120,7 @@ impl RefreshInventory {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
 
         for schema in approved_schemas? {
-            let mut config_path = format!("./.dbtvc/config/schemas/{}", schema);
+            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
             std::fs::create_dir_all(&config_path)
                 .expect("Should be able to create the required directories");
             config_path = config_path + "/table_ddl_to_include.conf";
@@ -155,7 +155,7 @@ impl RefreshInventory {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
 
         for schema in approved_schemas? {
-            let mut config_path = format!("./.dbtvc/config/schemas/{}", schema);
+            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
             std::fs::create_dir_all(&config_path)
                 .expect("Should be able to create the required directories");
             config_path = config_path + "/table_data_to_include.conf";
@@ -189,7 +189,7 @@ impl RefreshInventory {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
 
         for schema in approved_schemas? {
-            let mut config_path = format!("./.dbtvc/config/schemas/{}", schema);
+            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
             std::fs::create_dir_all(&config_path)
                 .expect("Should be able to create the required directories");
             config_path = config_path + "/data_types_to_include.conf";

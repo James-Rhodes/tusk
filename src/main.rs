@@ -1,7 +1,7 @@
 use clap::Parser;
 use anyhow;
 
-use dbtvc::cli;
+use tusk::cli;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

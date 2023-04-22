@@ -11,7 +11,7 @@ pub struct FunctionSyncer {}
 impl Syncer for FunctionSyncer {
     fn get_all<'conn>(pool: &'conn PgPool, schema: &'conn str) -> Result<RowStream<'conn>> {
 
-        let file_path =  format!( "./.dbtvc/config/schemas/{}/functions_to_include.conf", schema);
+        let file_path =  format!( "./.tusk/config/schemas/{}/functions_to_include.conf", schema);
         format_config_file(&file_path)?;
 
         let approved_funcs = get_uncommented_file_contents(&file_path)?;
@@ -41,7 +41,7 @@ impl Syncer for FunctionSyncer {
             return new_item;
         }).collect::<Vec<String>>();
 
-        let file_path =  format!( "./.dbtvc/config/schemas/{}/functions_to_include.conf", schema);
+        let file_path =  format!( "./.tusk/config/schemas/{}/functions_to_include.conf", schema);
         format_config_file(&file_path)?;
 
         let approved_funcs = get_uncommented_file_contents(&file_path)?;

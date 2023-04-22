@@ -24,7 +24,7 @@ pub enum Action {
     Push,
 
     /// Creates a list of all schemas, tables and functions within the Database defined by the
-    /// connection in ./.dbtvc/.env
+    /// connection in ./.tusk/.env
     RefreshInventory(RefreshInventory),
 }
 

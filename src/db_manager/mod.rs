@@ -30,7 +30,7 @@ pub async fn get_db_connection() -> Result<PgPool> {
 }
 
 fn get_db_env_vars() -> Result<DbEnvVars> {
-    dotenvy::from_filename("./.dbtvc/.env")?;
+    dotenvy::from_filename("./.tusk/.env")?;
 
     let db_user = dotenvy::var("DB_USER")?;
     let db_pass = dotenvy::var("DB_PASSWORD")?;

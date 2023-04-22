@@ -14,7 +14,7 @@ pub struct TableDDLSyncer {}
 impl Syncer for TableDDLSyncer {
     fn get_all<'conn>(pool: &'conn PgPool, schema: &'conn str) -> Result<RowStream<'conn>> {
         let file_path = format!(
-            "./.dbtvc/config/schemas/{}/table_ddl_to_include.conf",
+            "./.tusk/config/schemas/{}/table_ddl_to_include.conf",
             schema
         );
         format_config_file(&file_path)?;
@@ -153,7 +153,7 @@ impl Syncer for TableDDLSyncer {
             .collect::<Vec<String>>();
 
         let file_path = format!(
-            "./.dbtvc/config/schemas/{}/table_ddl_to_include.conf",
+            "./.tusk/config/schemas/{}/table_ddl_to_include.conf",
             schema
         );
         format_config_file(&file_path)?;

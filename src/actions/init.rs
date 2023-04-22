@@ -3,15 +3,15 @@ use clap::Args;
 
 use crate::actions::Action;
 
-pub const ENV_LOCATION: &str = "./.dbtvc/.env";
-pub const SCHEMA_CONFIG_LOCATION: &str = "./.dbtvc/config/schemas_to_include.conf";
+pub const ENV_LOCATION: &str = "./.tusk/.env";
+pub const SCHEMA_CONFIG_LOCATION: &str = "./.tusk/config/schemas_to_include.conf";
 
 #[derive(Debug, Args)]
 pub struct Init {}
 
 impl Init {
     pub fn init_directories(&self) -> anyhow::Result<()> {
-        std::fs::create_dir_all("./.dbtvc/config/schemas")?;
+        std::fs::create_dir_all("./.tusk/config/schemas")?;
 
         // Create the .env file for db config info
         if !std::path::Path::new(ENV_LOCATION).exists() {
