@@ -123,6 +123,10 @@ impl Action for Sync {
         let pool = db_manager::get_db_connection().await?;
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
+        // This is getting unmanageable. Create a Sync version that works for sql queries that can
+        // get the ddl. Write another version that works with another trait that defines how to
+        // call pg-dump for what is required.
+
         for schema in approved_schemas {
             self.sync::<FunctionSyncer>(&pool, &schema, &self.function)
                 .await?;
