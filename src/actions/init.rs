@@ -17,7 +17,7 @@ impl Init {
         if !std::path::Path::new(ENV_LOCATION).exists() {
             std::fs::write(
                 ENV_LOCATION,
-                "DB_USER=****\nDB_PASSWORD=****\nDB_PORT=****\nDB_NAME=****",
+                "DB_USER=****\nDB_PASSWORD=****\nDB_PORT=****\nDB_NAME=****\n\n#SSH_HOST=****\n#SSH_PASSWORD=****\nSSH_PORT=****",
             )?;
         }
 

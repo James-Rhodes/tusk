@@ -11,7 +11,7 @@ struct DbEnvVars {
     db_name: String,
 }
 
-pub async fn get_db_connection() -> Result<PgPool> {
+pub fn get_connection_string() -> Result<String> {
     let DbEnvVars {
         db_user,
         db_pass,
@@ -19,7 +19,13 @@ pub async fn get_db_connection() -> Result<PgPool> {
         db_name,
     } = get_db_env_vars()?;
 
-    let connection_string = format!("postgres://{}:{}@{}/{}", db_user, db_pass, db_port, db_name);
+   return Ok(format!("postgres://{}:{}@{}/{}", db_user, db_pass, db_port, db_name))
+}
+
+pub async fn get_db_connection() -> Result<PgPool> {
+
+    let connection_string = get_connection_string()?;
+    println!("{}", connection_string);
 
     let pool = PgPoolOptions::new()
         .max_connections(MAX_DB_CONNECTIONS)

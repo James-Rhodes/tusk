@@ -2,13 +2,13 @@ use sqlx::PgPool;
 use anyhow::Result;
 
 use crate::{actions::sync::{
-    syncers::{RowStream, Syncer},
+    syncers::{RowStream, SQLSyncer},
     DDL,
 }, config_file_manager::{get_uncommented_file_contents, format_config_file}};
 
 pub struct FunctionSyncer {}
 
-impl Syncer for FunctionSyncer {
+impl SQLSyncer for FunctionSyncer {
     fn get_all<'conn>(pool: &'conn PgPool, schema: &'conn str) -> Result<RowStream<'conn>> {
 
         let file_path =  format!( "./.tusk/config/schemas/{}/functions_to_include.conf", schema);

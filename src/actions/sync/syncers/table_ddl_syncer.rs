@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use crate::{
     actions::sync::{
-        syncers::{RowStream, Syncer},
+        syncers::{RowStream, SQLSyncer},
         DDL,
     },
     config_file_manager::{format_config_file, get_uncommented_file_contents},
@@ -11,7 +11,7 @@ use crate::{
 
 pub struct TableDDLSyncer {}
 
-impl Syncer for TableDDLSyncer {
+impl SQLSyncer for TableDDLSyncer {
     fn get_all<'conn>(pool: &'conn PgPool, schema: &'conn str) -> Result<RowStream<'conn>> {
         let file_path = format!(
             "./.tusk/config/schemas/{}/table_ddl_to_include.conf",

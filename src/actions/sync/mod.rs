@@ -41,7 +41,7 @@ pub struct Sync {
 }
 
 impl Sync {
-    async fn sync_all<T: syncers::Syncer>(pool: &PgPool, schema_name: &str) -> Result<()> {
+    async fn sync_all<T: syncers::SQLSyncer>(pool: &PgPool, schema_name: &str) -> Result<()> {
         let mut all_ddl = T::get_all(pool, schema_name)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
@@ -67,7 +67,7 @@ impl Sync {
 
         return Ok(());
     }
-    async fn sync_some<T: syncers::Syncer>(
+    async fn sync_some<T: syncers::SQLSyncer>(
         pool: &PgPool,
         schema_name: &str,
         items: &Vec<String>,
@@ -98,7 +98,7 @@ impl Sync {
         return Ok(());
     }
 
-    async fn sync<T: syncers::Syncer>(
+    async fn sync<T: syncers::SQLSyncer>(
         &self,
         pool: &PgPool,
         schema_name: &str,
