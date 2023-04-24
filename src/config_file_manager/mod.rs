@@ -66,6 +66,24 @@ pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
     return Ok(result);
 }
 
+pub fn get_matching_uncomented_file_contents(file_path: &str, patterns: Vec<String>) -> Result<Vec<String>> {
+
+    let uncommented_contents = get_uncommented_file_contents(file_path)?;
+
+    let matching_contents = uncommented_contents.into_iter().filter(|item| {
+        for pat in &patterns {
+            if item.starts_with(pat) {
+                return true;
+            }
+        }
+        return false;
+    })
+    .collect();
+
+    return Ok(matching_contents);
+
+}
+
 pub fn update_file_contents_from_db(
     file_path: &str,
     from_db: HashSet<String>,
@@ -145,7 +163,7 @@ mod tests {
         }
     }
 
-    mod get_uncommented_file_contents_tests {
+    mod getting_file_contents {
         use super::*;
         use tempfile::tempdir_in;
 
@@ -168,6 +186,33 @@ mod tests {
                 get_uncommented_file_contents(&file_path)
                     .expect("This should never fail in this scenario"),
                 vec!["should_show", "should show too with spaces"]
+            );
+        }
+
+        #[test]
+        fn get_matching_uncomented_file_contents_works() {
+            let temp_test_dir =
+                tempdir_in(".").expect("Temporary Directory should not fail to be created");
+            let file_path = String::from(
+                temp_test_dir
+                    .path()
+                    .join("test_config.txt")
+                    .to_str()
+                    .unwrap(),
+            );
+            println!("{}", file_path);
+
+            std::fs::write(&file_path, "//dont_show\nshould_show\nshould show too with spaces\n   //shouldnt show with spaces").unwrap();
+
+            assert_eq!(
+                get_matching_uncomented_file_contents(&file_path, vec![String::from("sh")])
+                    .expect("This should never fail in this scenario"),
+                vec!["should_show", "should show too with spaces"]
+            );
+            assert_eq!(
+                get_matching_uncomented_file_contents(&file_path, vec![String::from("should_")])
+                    .expect("This should never fail in this scenario"),
+                vec!["should_show"]
             );
         }
     }
