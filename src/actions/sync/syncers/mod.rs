@@ -21,8 +21,8 @@ pub trait SQLSyncer {
 
 pub trait PgDumpSyncer {
     // This one will write all of the DDL to files
-    fn get_all(pool: & PgPool, schema: &str) -> Result<()>;
+    fn get_all(schema: &str) -> Result<()>;
 
     // This one will write the ones in items to DDL files
-    fn get(pool: &PgPool, schema: &str, items: &Vec<String>) -> Result<()>;
+    fn get(schema: &str, items: &Vec<String>) -> Result<()>;
 }
