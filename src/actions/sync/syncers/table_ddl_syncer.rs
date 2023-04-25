@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     actions::sync::syncers::PgDumpSyncer,
-    config_file_manager::{format_config_file, get_uncommented_file_contents},
+    config_file_manager::{format_config_file, get_uncommented_file_contents, get_matching_uncomented_file_contents},
     db_manager::get_connection_string,
 };
 
@@ -56,6 +56,7 @@ impl PgDumpSyncer for TableDDLSyncer {
     }
 
     fn get(schema: &str, items: &Vec<String>) -> Result<()> {
+
         let file_path = format!(
             "./.tusk/config/schemas/{}/table_ddl_to_include.conf",
             schema
@@ -64,27 +65,9 @@ impl PgDumpSyncer for TableDDLSyncer {
 
         let approved_tables = get_uncommented_file_contents(&file_path)?;
 
-        // TODO: See if this can be changed to have no clones/collects
-        let mut items = items
-            .iter()
-            .filter_map(|item| {
-                let matches_approved = approved_tables
-                    .iter()
-                    .filter(|table| table.starts_with(item))
-                    .collect::<Vec<&String>>();
+        let items = get_matching_uncomented_file_contents(&approved_tables, items)?;
 
-                if matches_approved.len() != 0 {
-                    return Some(matches_approved);
-                }
-
-                return None;
-            })
-            .flatten()
-            .collect::<Vec<&String>>();
-        items.sort();
-        items.dedup();
-
-        if items.len() == 0 {
+        if items.is_empty() {
             return Ok(());
         }
 

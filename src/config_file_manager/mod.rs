@@ -66,22 +66,41 @@ pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
     return Ok(result);
 }
 
-pub fn get_matching_uncomented_file_contents(file_path: &str, patterns: Vec<String>) -> Result<Vec<String>> {
+pub fn get_matching_uncomented_file_contents<'u>(
+    uncommented_contents: &'u Vec<String>,
+    patterns: &Vec<String>,
+) -> Result<Vec<&'u String>> {
+    // let uncommented_contents = get_uncommented_file_contents(file_path)?;
 
-    let uncommented_contents = get_uncommented_file_contents(file_path)?;
+    // let matching_contents = uncommented_contents.into_iter().filter(|item| {
+    //     for pat in &patterns {
+    //         if item.starts_with(pat) {
+    //             return true;
+    //         }
+    //     }
+    //     return false;
+    // })
+    // .collect();
+    let mut matching_items = patterns
+        .iter()
+        .filter_map(|item| {
+            let matches_approved = uncommented_contents
+                .iter()
+                .filter(|table| table.starts_with(item))
+                .collect::<Vec<&String>>();
 
-    let matching_contents = uncommented_contents.into_iter().filter(|item| {
-        for pat in &patterns {
-            if item.starts_with(pat) {
-                return true;
+            if matches_approved.len() != 0 {
+                return Some(matches_approved);
             }
-        }
-        return false;
-    })
-    .collect();
 
-    return Ok(matching_contents);
+            return None;
+        })
+        .flatten()
+        .collect::<Vec<&String>>();
+    matching_items.sort();
+    matching_items.dedup();
 
+    return Ok(matching_items);
 }
 
 pub fn update_file_contents_from_db(
@@ -191,28 +210,18 @@ mod tests {
 
         #[test]
         fn get_matching_uncomented_file_contents_works() {
-            let temp_test_dir =
-                tempdir_in(".").expect("Temporary Directory should not fail to be created");
-            let file_path = String::from(
-                temp_test_dir
-                    .path()
-                    .join("test_config.txt")
-                    .to_str()
-                    .unwrap(),
-            );
-            println!("{}", file_path);
 
-            std::fs::write(&file_path, "//dont_show\nshould_show\nshould show too with spaces\n   //shouldnt show with spaces").unwrap();
+            let test_uncommented_contents = vec![String::from("Test_One"), String::from("Test_Two"), String::from("unrelated")];
 
             assert_eq!(
-                get_matching_uncomented_file_contents(&file_path, vec![String::from("sh")])
+                get_matching_uncomented_file_contents(&test_uncommented_contents, &vec![String::from("Test")])
                     .expect("This should never fail in this scenario"),
-                vec!["should_show", "should show too with spaces"]
+                vec!["Test_One", "Test_Two"]
             );
             assert_eq!(
-                get_matching_uncomented_file_contents(&file_path, vec![String::from("should_")])
+                get_matching_uncomented_file_contents(&test_uncommented_contents, &vec![String::from("Test"), String::from("un")])
                     .expect("This should never fail in this scenario"),
-                vec!["should_show"]
+                vec!["Test_One", "Test_Two", "unrelated"]
             );
         }
     }
