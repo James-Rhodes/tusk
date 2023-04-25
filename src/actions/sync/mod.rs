@@ -98,7 +98,7 @@ impl Sync {
         return Ok(());
     }
 
-    async fn sync<T: syncers::SQLSyncer>(
+    async fn sync_sql<T: syncers::SQLSyncer>(
         &self,
         pool: &PgPool,
         schema_name: &str,
@@ -111,6 +111,23 @@ impl Sync {
             } else {
                 // Run a sync on the items in input_items
                 Self::sync_some::<T>(pool, schema_name, input_items).await?;
+            }
+        }
+        return Ok(());
+    }
+
+    fn sync_pg_dump<T: syncers::PgDumpSyncer>(
+        &self,
+        schema_name: &str,
+        input_items: &Option<Vec<String>>,
+    ) -> Result<()> {
+        if let Some(input_items) = input_items {
+            if input_items.len() == 0 {
+                // Run a sync on all of the items
+                T::get_all(schema_name)?;
+            } else {
+                // Run a sync on the items in input_items
+                T::get(schema_name, input_items)?;
             }
         }
         return Ok(());
@@ -128,10 +145,9 @@ impl Action for Sync {
         // call pg-dump for what is required.
 
         for schema in approved_schemas {
-            self.sync::<FunctionSyncer>(&pool, &schema, &self.function)
+            self.sync_sql::<FunctionSyncer>(&pool, &schema, &self.function)
                 .await?;
-            self.sync::<TableDDLSyncer>(&pool, &schema, &self.table_ddl)
-                .await?;
+            self.sync_pg_dump::<TableDDLSyncer>(&schema, &self.table_ddl)?;
         }
         return Ok(());
     }
