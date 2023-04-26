@@ -69,24 +69,21 @@ pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
 pub fn get_matching_uncomented_file_contents<'u>(
     uncommented_contents: &'u Vec<String>,
     patterns: &Vec<String>,
+    schema_to_match: Option<&str>,
 ) -> Result<Vec<&'u String>> {
-    // let uncommented_contents = get_uncommented_file_contents(file_path)?;
-
-    // let matching_contents = uncommented_contents.into_iter().filter(|item| {
-    //     for pat in &patterns {
-    //         if item.starts_with(pat) {
-    //             return true;
-    //         }
-    //     }
-    //     return false;
-    // })
-    // .collect();
     let mut matching_items = patterns
         .iter()
         .filter_map(|item| {
             let matches_approved = uncommented_contents
                 .iter()
-                .filter(|table| table.starts_with(item))
+                .filter(|table| match (item.split_once("."), schema_to_match) {
+                    (Some((schema_name, item_to_match)), Some(schema_to_match)) => {
+                        schema_name == schema_to_match
+                            && (table.starts_with(item_to_match) || item_to_match == "*")
+                    }
+                    (None, Some(_)) | (None, None) => table.starts_with(item),
+                    _ => false,
+                })
                 .collect::<Vec<&String>>();
 
             if matches_approved.len() != 0 {
@@ -210,17 +207,53 @@ mod tests {
 
         #[test]
         fn get_matching_uncomented_file_contents_works() {
-
-            let test_uncommented_contents = vec![String::from("Test_One"), String::from("Test_Two"), String::from("unrelated")];
+            let test_uncommented_contents = vec![
+                String::from("Test_One"),
+                String::from("Test_Two"),
+                String::from("unrelated"),
+            ];
 
             assert_eq!(
-                get_matching_uncomented_file_contents(&test_uncommented_contents, &vec![String::from("Test")])
-                    .expect("This should never fail in this scenario"),
+                get_matching_uncomented_file_contents(
+                    &test_uncommented_contents,
+                    &vec![String::from("Test")],
+                    None
+                )
+                .expect("This should never fail in this scenario"),
                 vec!["Test_One", "Test_Two"]
             );
+
             assert_eq!(
-                get_matching_uncomented_file_contents(&test_uncommented_contents, &vec![String::from("Test"), String::from("un")])
-                    .expect("This should never fail in this scenario"),
+                get_matching_uncomented_file_contents(
+                    &test_uncommented_contents,
+                    &vec![String::from("Test"), String::from("un")],
+                    None
+                )
+                .expect("This should never fail in this scenario"),
+                vec!["Test_One", "Test_Two", "unrelated"]
+            );
+
+            assert_eq!(
+                get_matching_uncomented_file_contents(
+                    &test_uncommented_contents,
+                    &vec![
+                        String::from("Test_O"),
+                        String::from("schema_name.Test_T"),
+                        String::from("not_match.un")
+                    ],
+                    Some("schema_name")
+                )
+                .expect("This should never fail in this scenario"),
+                vec!["Test_One", "Test_Two"]
+            );
+
+            assert_eq!(
+                get_matching_uncomented_file_contents(
+                    &test_uncommented_contents,
+                    &vec![String::from("schema_name.*"),],
+                    Some("schema_name")
+                )
+                .expect("This should never fail in this scenario"),
                 vec!["Test_One", "Test_Two", "unrelated"]
             );
         }

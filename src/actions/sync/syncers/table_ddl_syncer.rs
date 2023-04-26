@@ -29,19 +29,17 @@ impl PgDumpSyncer for TableDDLSyncer {
             std::fs::create_dir_all(&parent_dir)?;
         }
 
-        let db_name = format!("--dbname={}", get_connection_string()?);
-        let schema_arg = format!("--schema={}", schema);
+        let db_name_arg = format!("--dbname={}", get_connection_string()?);
 
         for table in approved_tables {
             let file_path = format!("{}/{}.sql", &parent_dir, table);
-            let table_arg = format!("--table={}", table);
+            let table_arg = format!("--table={}.{}", schema, table);
 
             let command_out = std::process::Command::new("pg_dump")
                 .args([
-                    &db_name,
+                    &db_name_arg,
                     "--schema-only",
                     "--no-owner",
-                    &schema_arg,
                     &table_arg,
                 ])
                 .output()?
@@ -65,7 +63,7 @@ impl PgDumpSyncer for TableDDLSyncer {
 
         let approved_tables = get_uncommented_file_contents(&file_path)?;
 
-        let items = get_matching_uncomented_file_contents(&approved_tables, items)?;
+        let items = get_matching_uncomented_file_contents(&approved_tables, items, Some(schema))?;
 
         if items.is_empty() {
             return Ok(());
@@ -78,19 +76,17 @@ impl PgDumpSyncer for TableDDLSyncer {
             std::fs::create_dir_all(&parent_dir)?;
         }
 
-        let db_name = format!("--dbname={}", get_connection_string()?);
-        let schema_arg = format!("--schema={}", schema);
+        let db_name_arg = format!("--dbname={}", get_connection_string()?);
 
         for table in items {
             let file_path = format!("{}/{}.sql", &parent_dir, table);
-            let table_arg = format!("--table={}", table);
+            let table_arg = format!("--table={}.{}", schema, table);
 
             let command_out = std::process::Command::new("pg_dump")
                 .args([
-                    &db_name,
+                    &db_name_arg,
                     "--schema-only",
                     "--no-owner",
-                    &schema_arg,
                     &table_arg,
                 ])
                 .output()?
