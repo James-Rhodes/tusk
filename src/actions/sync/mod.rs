@@ -5,7 +5,11 @@ use clap::Args;
 use futures::TryStreamExt;
 use sqlx::PgPool;
 
-use crate::{actions::Action, config_file_manager::get_uncommented_file_contents, db_manager};
+use crate::{
+    actions::Action,
+    config_file_manager::get_uncommented_file_contents,
+    db_manager::{self, get_connection_string},
+};
 
 use self::syncers::{function_syncer::FunctionSyncer, table_ddl_syncer::TableDDLSyncer};
 
@@ -119,15 +123,29 @@ impl Sync {
     fn sync_pg_dump<T: syncers::PgDumpSyncer>(
         &self,
         schema_name: &str,
+        config_file_path: &str,
+        ddl_parent_dir: &str,
+        connection_string: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
                 // Run a sync on all of the items
-                T::get_all(schema_name)?;
+                T::get_all(
+                    schema_name,
+                    config_file_path,
+                    ddl_parent_dir,
+                    connection_string,
+                )?;
             } else {
                 // Run a sync on the items in input_items
-                T::get(schema_name, input_items)?;
+                T::get(
+                    schema_name,
+                    config_file_path,
+                    ddl_parent_dir,
+                    connection_string,
+                    input_items,
+                )?;
             }
         }
         return Ok(());
@@ -144,10 +162,21 @@ impl Action for Sync {
         // get the ddl. Write another version that works with another trait that defines how to
         // call pg-dump for what is required.
 
+        let connection_string = get_connection_string()?;
         for schema in approved_schemas {
             self.sync_sql::<FunctionSyncer>(&pool, &schema, &self.function)
                 .await?;
-            self.sync_pg_dump::<TableDDLSyncer>(&schema, &self.table_ddl)?;
+            // schema: &str, config_file_path: &str, ddl_parent_dir: &str, connection_string: &str, items: &Vec<String>
+            self.sync_pg_dump::<TableDDLSyncer>(
+                &schema,
+                &format!(
+                    "./.tusk/config/schemas/{}/table_ddl_to_include.conf",
+                    schema,
+                ),
+                &format!("./schemas/{}/table_ddl", schema),
+                &connection_string, 
+                &self.table_ddl,
+            )?;
         }
         return Ok(());
     }
