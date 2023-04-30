@@ -11,7 +11,7 @@ use crate::{
     db_manager::{self, get_connection_string},
 };
 
-use self::syncers::{function_syncer::FunctionSyncer, table_ddl_syncer::TableDDLSyncer};
+use self::syncers::{function_syncer::FunctionSyncer, table_ddl_syncer::TableDDLSyncer, table_data_syncer::TableDataSyncer, data_type_syncer::DataTypeSyncer};
 
 use super::init::SCHEMA_CONFIG_LOCATION;
 
@@ -164,9 +164,11 @@ impl Action for Sync {
 
         let connection_string = get_connection_string()?;
         for schema in approved_schemas {
+            // get the function ddl
             self.sync_sql::<FunctionSyncer>(&pool, &schema, &self.function)
                 .await?;
-            // schema: &str, config_file_path: &str, ddl_parent_dir: &str, connection_string: &str, items: &Vec<String>
+
+            // get the table ddl
             self.sync_pg_dump::<TableDDLSyncer>(
                 &schema,
                 &format!(
@@ -177,6 +179,22 @@ impl Action for Sync {
                 &connection_string, 
                 &self.table_ddl,
             )?;
+
+            // get the table data
+            self.sync_pg_dump::<TableDataSyncer>(
+                &schema,
+                &format!(
+                    "./.tusk/config/schemas/{}/table_data_to_include.conf",
+                    schema,
+                ),
+                &format!("./schemas/{}/table_data", schema),
+                &connection_string, 
+                &self.table_data,
+            )?;
+
+            // get the data_types ddl
+            self.sync_sql::<DataTypeSyncer>(&pool, &schema, &self.data_types)
+                .await?;
         }
         return Ok(());
     }
