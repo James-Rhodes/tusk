@@ -27,26 +27,28 @@ pub struct DDL {
 
 #[derive(Debug, Args)]
 pub struct Sync {
-    /// Sync the specified function
+    /// Sync the specified function or functions that start with the input pattern.
     #[arg(short,long, num_args(0..))]
-    function: Option<Vec<String>>,
+    functions: Option<Vec<String>>,
 
-    /// Sync the specified table ddl
+    /// Sync the specified table ddl that starts with the input pattern.
     #[arg(short,long, num_args(0..))]
     table_ddl: Option<Vec<String>>,
 
-    /// Sync the specified table data
+    /// Sync the specified table data that starts with the input pattern.
     #[arg(short='T',long, num_args(0..))]
     table_data: Option<Vec<String>>,
 
-    /// Sync the specified data types
+    /// Sync the specified data types (enums, domains or composite types) that starts with the input pattern.
     #[arg(short,long, num_args(0..))]
     data_types: Option<Vec<String>>,
 
-    /// Sync the specified views (materialized views and normal views)
+    /// Sync the specified views (materialized views and normal views) that starts with the input pattern.     
     #[arg(short,long, num_args(0..))]
     views: Option<Vec<String>>,
 
+    /// Sync all of the DDL within the schemas that are uncommented in the schema config file found
+    /// at ./.tusk/config/schemas_to_include.conf
     #[arg(short, long)]
     all: bool,
 }
@@ -202,7 +204,7 @@ impl Action for Sync {
                     "./.tusk/config/schemas/{}/functions_to_include.conf",
                     schema
                 ),
-                &self.function,
+                &self.functions,
             )
             .await?;
 
