@@ -11,7 +11,10 @@ use crate::{
     db_manager::{self, get_connection_string},
 };
 
-use self::syncers::{function_syncer::FunctionSyncer, table_ddl_syncer::TableDDLSyncer, table_data_syncer::TableDataSyncer, data_type_syncer::DataTypeSyncer};
+use self::syncers::{
+    data_type_syncer::DataTypeSyncer, function_syncer::FunctionSyncer,
+    table_data_syncer::TableDataSyncer, table_ddl_syncer::TableDDLSyncer,
+};
 
 use super::init::SCHEMA_CONFIG_LOCATION;
 
@@ -45,8 +48,12 @@ pub struct Sync {
 }
 
 impl Sync {
-    async fn sync_all<T: syncers::SQLSyncer>(pool: &PgPool, schema_name: &str) -> Result<()> {
-        let mut all_ddl = T::get_all(pool, schema_name)?;
+    async fn sync_all<T: syncers::SQLSyncer>(
+        pool: &PgPool,
+        config_file_path: &str,
+        schema_name: &str,
+    ) -> Result<()> {
+        let mut all_ddl = T::get_all(pool, schema_name, config_file_path)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
@@ -73,10 +80,11 @@ impl Sync {
     }
     async fn sync_some<T: syncers::SQLSyncer>(
         pool: &PgPool,
+        config_file_path: &str,
         schema_name: &str,
         items: &Vec<String>,
     ) -> Result<()> {
-        let mut all_ddl = T::get(pool, schema_name, items)?;
+        let mut all_ddl = T::get(pool, config_file_path, schema_name, items)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
@@ -105,16 +113,17 @@ impl Sync {
     async fn sync_sql<T: syncers::SQLSyncer>(
         &self,
         pool: &PgPool,
+        config_file_path: &str,
         schema_name: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
                 // Run a sync on all of the items
-                Self::sync_all::<T>(pool, schema_name).await?;
+                Self::sync_all::<T>(pool, config_file_path, schema_name).await?;
             } else {
                 // Run a sync on the items in input_items
-                Self::sync_some::<T>(pool, schema_name, input_items).await?;
+                Self::sync_some::<T>(pool, config_file_path, schema_name, input_items).await?;
             }
         }
         return Ok(());
@@ -165,8 +174,16 @@ impl Action for Sync {
         let connection_string = get_connection_string()?;
         for schema in approved_schemas {
             // get the function ddl
-            self.sync_sql::<FunctionSyncer>(&pool, &schema, &self.function)
-                .await?;
+            self.sync_sql::<FunctionSyncer>(
+                &pool,
+                &format!(
+                    "./.tusk/config/schemas/{}/functions_to_include.conf",
+                    schema
+                ),
+                &schema,
+                &self.function,
+            )
+            .await?;
 
             // get the table ddl
             self.sync_pg_dump::<TableDDLSyncer>(
@@ -176,7 +193,7 @@ impl Action for Sync {
                     schema,
                 ),
                 &format!("./schemas/{}/table_ddl", schema),
-                &connection_string, 
+                &connection_string,
                 &self.table_ddl,
             )?;
 
@@ -188,12 +205,17 @@ impl Action for Sync {
                     schema,
                 ),
                 &format!("./schemas/{}/table_data", schema),
-                &connection_string, 
+                &connection_string,
                 &self.table_data,
             )?;
 
             // get the data_types ddl
-            self.sync_sql::<DataTypeSyncer>(&pool, &schema, &self.data_types)
+            self.sync_sql::<DataTypeSyncer>(&pool,
+                &format!(
+                    "./.tusk/config/schemas/{}/data_types_to_include.conf",
+                    schema,
+                ),
+                &schema, &self.data_types)
                 .await?;
         }
         return Ok(());

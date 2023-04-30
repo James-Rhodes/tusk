@@ -1,15 +1,4 @@
-use anyhow::Result;
-use sqlx::PgPool;
-
-use crate::{
-    actions::sync::{
-        syncers::{RowStream, SQLSyncer},
-        DDL,
-    },
-    config_file_manager::{
-        format_config_file, get_matching_uncommented_file_contents, get_uncommented_file_contents,
-    },
-};
+use crate::actions::sync::syncers::SQLSyncer;
 
 const DATA_TYPE_QUERY:&str = "
             WITH all_types AS (
@@ -102,42 +91,7 @@ const DATA_TYPE_QUERY:&str = "
 pub struct DataTypeSyncer {}
 
 impl SQLSyncer for DataTypeSyncer {
-    fn get_all<'conn>(pool: &'conn PgPool, schema: &'conn str) -> Result<RowStream<'conn>> {
-        let file_path = format!(
-            "./.tusk/config/schemas/{}/data_types_to_include.conf",
-            schema
-        );
-        format_config_file(&file_path)?;
-
-        let approved_data_types = get_uncommented_file_contents(&file_path)?;
-
-        return Ok(sqlx::query_as::<_, DDL>(DATA_TYPE_QUERY)
-            .bind(schema)
-            .bind(approved_data_types)
-            .fetch(pool));
-    }
-
-    fn get<'conn>(
-        pool: &'conn PgPool,
-        schema: &'conn str,
-        items: &'conn Vec<String>,
-    ) -> Result<RowStream<'conn>> {
-        let file_path = format!(
-            "./.tusk/config/schemas/{}/data_types_to_include.conf",
-            schema
-        );
-        format_config_file(&file_path)?;
-
-        let approved_data_types = get_uncommented_file_contents(&file_path)?;
-        let items =
-            get_matching_uncommented_file_contents(&approved_data_types, &items, Some(schema))?
-                .into_iter()
-                .map(|item| item.clone())
-                .collect::<Vec<String>>();
-
-        return Ok(sqlx::query_as::<_, DDL>(DATA_TYPE_QUERY)
-            .bind(schema)
-            .bind(items)
-            .fetch(pool));
+    fn get_ddl_query() -> &'static str {
+        return DATA_TYPE_QUERY;
     }
 }
