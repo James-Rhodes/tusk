@@ -22,8 +22,8 @@ pub trait SQLSyncer {
     // This returns all the DDL from a postgres query as a stream for writing manually to a file
     fn get_all<'conn>(
         pool: &'conn PgPool,
-        config_file_path: &str,
         schema: &'conn str,
+        config_file_path: &str,
     ) -> Result<RowStream<'conn>> {
         format_config_file(&config_file_path)?;
 
@@ -38,8 +38,8 @@ pub trait SQLSyncer {
     // This returns the DDL from a Postgres query as a stream for writing manually to a file
     fn get<'conn>(
         pool: &'conn PgPool,
-        config_file_path: &str,
         schema: &'conn str,
+        config_file_path: &str,
         items: &'conn Vec<String>,
     ) -> Result<RowStream<'conn>> {
 

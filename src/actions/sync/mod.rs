@@ -54,8 +54,8 @@ pub struct Sync {
 impl Sync {
     async fn sync_all<T: syncers::SQLSyncer>(
         pool: &PgPool,
-        config_file_path: &str,
         schema_name: &str,
+        config_file_path: &str,
     ) -> Result<()> {
         let mut all_ddl = T::get_all(pool, schema_name, config_file_path)?;
 
@@ -84,11 +84,11 @@ impl Sync {
     }
     async fn sync_some<T: syncers::SQLSyncer>(
         pool: &PgPool,
-        config_file_path: &str,
         schema_name: &str,
+        config_file_path: &str,
         items: &Vec<String>,
     ) -> Result<()> {
-        let mut all_ddl = T::get(pool, config_file_path, schema_name, items)?;
+        let mut all_ddl = T::get(pool, schema_name, config_file_path, items)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
@@ -117,17 +117,24 @@ impl Sync {
     async fn sync_sql<T: syncers::SQLSyncer>(
         &self,
         pool: &PgPool,
-        config_file_path: &str,
         schema_name: &str,
+        config_file_path: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
+        if self.all {
+            // we want to sync everything if self.all is true
+            Self::sync_all::<T>(pool, schema_name, config_file_path,).await?;
+        }
+
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
                 // Run a sync on all of the items
-                Self::sync_all::<T>(pool, config_file_path, schema_name).await?;
+                Self::sync_all::<T>(pool, schema_name, config_file_path).await?;
             } else {
                 // Run a sync on the items in input_items
-                Self::sync_some::<T>(pool, config_file_path, schema_name, input_items).await?;
+                Self::sync_some::<T>(pool, schema_name, config_file_path, input_items).await?;
+
+
             }
         }
         return Ok(());
@@ -141,6 +148,16 @@ impl Sync {
         connection_string: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
+        if self.all {
+            // we want to sync everything if self.all is true
+            T::get_all(
+                schema_name,
+                config_file_path,
+                ddl_parent_dir,
+                connection_string,
+            )?;
+        }
+
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
                 // Run a sync on all of the items
@@ -180,11 +197,11 @@ impl Action for Sync {
             // get the function ddl
             self.sync_sql::<FunctionSyncer>(
                 &pool,
+                &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/functions_to_include.conf",
                     schema
                 ),
-                &schema,
                 &self.function,
             )
             .await?;
@@ -214,21 +231,21 @@ impl Action for Sync {
             )?;
 
             // get the data_types ddl
-            self.sync_sql::<DataTypeSyncer>(&pool,
+            self.sync_sql::<DataTypeSyncer>(
+                &pool,
+                &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/data_types_to_include.conf",
                     schema,
                 ),
-                &schema, &self.data_types)
-                .await?;
+                &self.data_types,
+            )
+            .await?;
 
             // get the view ddl
             self.sync_pg_dump::<ViewSyncer>(
                 &schema,
-                &format!(
-                    "./.tusk/config/schemas/{}/views_to_include.conf",
-                    schema,
-                ),
+                &format!("./.tusk/config/schemas/{}/views_to_include.conf", schema,),
                 &format!("./schemas/{}/views", schema),
                 &connection_string,
                 &self.views,
