@@ -2,6 +2,7 @@ pub mod data_type_syncer;
 pub mod function_syncer;
 pub mod table_data_syncer;
 pub mod table_ddl_syncer;
+pub mod view_syncer;
 
 use std::pin::Pin;
 

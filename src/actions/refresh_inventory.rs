@@ -223,6 +223,44 @@ impl RefreshInventory {
 
         return Ok(());
     }
+
+    async fn refresh_views_list(&self, pool: &PgPool) -> Result<()> {
+        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+
+        for schema in approved_schemas? {
+            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
+            std::fs::create_dir_all(&config_path)
+                .expect("Should be able to create the required directories");
+            config_path = config_path + "/views_to_include.conf";
+
+            // Create the file that will contain the function config if it does not already exist
+            if !std::path::Path::new(&config_path).exists() {
+                std::fs::write(&config_path, "")?;
+            }
+
+            self.refresh_list(
+                pool,
+                &format!(
+                    "
+                    SELECT c.oid::regclass::text as views
+                    FROM pg_class c
+                    JOIN pg_catalog.pg_namespace ns ON ns.oid = c.relnamespace 
+                    WHERE ns.nspname = '{}'
+                    AND relkind IN ('m', 'v')
+                    ORDER BY views
+                    ",
+                    schema
+                ),
+                "views",
+                &config_path,
+                &format!("The schema: \"{}\" has had its views", schema),
+                false,
+            )
+            .await?;
+        }
+
+        return Ok(());
+    }
 }
 
 #[async_trait]
@@ -239,6 +277,8 @@ impl Action for RefreshInventory {
         self.refresh_table_ddl_list(&pool).await?;
         self.refresh_table_data_list(&pool).await?;
         self.refresh_data_types_list(&pool).await?;
+        self.refresh_views_list(&pool).await?;
+
         return Ok(());
     }
 }

@@ -13,7 +13,7 @@ use crate::{
 
 use self::syncers::{
     data_type_syncer::DataTypeSyncer, function_syncer::FunctionSyncer,
-    table_data_syncer::TableDataSyncer, table_ddl_syncer::TableDDLSyncer,
+    table_data_syncer::TableDataSyncer, table_ddl_syncer::TableDDLSyncer, view_syncer::ViewSyncer,
 };
 
 use super::init::SCHEMA_CONFIG_LOCATION;
@@ -42,6 +42,10 @@ pub struct Sync {
     /// Sync the specified data types
     #[arg(short,long, num_args(0..))]
     data_types: Option<Vec<String>>,
+
+    /// Sync the specified views (materialized views and normal views)
+    #[arg(short,long, num_args(0..))]
+    views: Option<Vec<String>>,
 
     #[arg(short, long)]
     all: bool,
@@ -217,6 +221,18 @@ impl Action for Sync {
                 ),
                 &schema, &self.data_types)
                 .await?;
+
+            // get the view ddl
+            self.sync_pg_dump::<ViewSyncer>(
+                &schema,
+                &format!(
+                    "./.tusk/config/schemas/{}/views_to_include.conf",
+                    schema,
+                ),
+                &format!("./schemas/{}/views", schema),
+                &connection_string,
+                &self.views,
+            )?;
         }
         return Ok(());
     }
