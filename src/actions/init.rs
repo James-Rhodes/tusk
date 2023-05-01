@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use clap::Args;
+use colored::Colorize;
 
 use crate::actions::Action;
 
@@ -11,7 +12,10 @@ pub struct Init {}
 
 impl Init {
     pub fn init_directories(&self) -> anyhow::Result<()> {
+        colored::control::set_override(true);
+
         std::fs::create_dir_all("./.tusk/config/schemas")?;
+        println!("\tCreated directory: {}", "./.tusk/config/schemas".bold());
 
         // Create the .env file for db config info
         if !std::path::Path::new(ENV_LOCATION).exists() {
@@ -19,14 +23,17 @@ impl Init {
                 ENV_LOCATION,
                 "DB_USER=****\nDB_PASSWORD=****\nDB_PORT=****\nDB_NAME=****\n\n#SSH_HOST=****\n#SSH_PASSWORD=****\nSSH_PORT=****",
             )?;
+            println!("\tCreated file: {}", ENV_LOCATION.bold());
         }
 
         // Create the file that will contain which schemas to include
         if !std::path::Path::new(SCHEMA_CONFIG_LOCATION).exists() {
             std::fs::write(SCHEMA_CONFIG_LOCATION, "")?;
+            println!("\tCreated file: {}", SCHEMA_CONFIG_LOCATION.bold());
         }
 
         std::fs::create_dir_all("./schemas")?;
+        println!("\tCreated directory: {}", "./schemas".bold());
 
         return Ok(());
     }
@@ -36,10 +43,10 @@ impl Init {
 impl Action for Init {
     async fn execute(&self) -> anyhow::Result<()> {
         println!(
-            "Initialising the required directory structure and creating template .env file..."
+            "\nInitialising the required directory structure and creating template .env file..."
         );
         self.init_directories()?;
-        println!("Finished initialisation");
+        println!("Finished initialisation\n");
 
         return Ok(());
     }

@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Args;
+use colored::Colorize;
 use sqlx::postgres::PgRow;
 use sqlx::{PgPool, Row};
 
@@ -46,9 +47,18 @@ impl RefreshInventory {
             add_new_as_commented,
         )?;
 
+        let added = match change_status.added {
+            0 => change_status.added.to_string().bold().yellow(),
+            _ => change_status.added.to_string().bold().green()
+        };
+
+        let removed = match change_status.removed {
+            0 => change_status.removed.to_string().bold().yellow(),
+            _ => change_status.removed.to_string().bold().red()
+        };
         println!(
-            "{} config file refreshed! Added: {}, Removed: {}",
-            list_type, change_status.added, change_status.removed
+            "{} config file refreshed! Added: {added:<4}, Removed: {removed:<4}",
+            list_type
         );
 
         return Ok(change_status);
@@ -107,7 +117,7 @@ impl RefreshInventory {
                 ),
                 "function_name",
                 &config_path,
-                &format!("The schema: \"{}\" has had its function definition", schema),
+                &format!("{}: Functions", schema),
                 false,
             )
             .await?;
@@ -143,7 +153,7 @@ impl RefreshInventory {
                 ),
                 "table_name",
                 &config_path,
-                &format!("The schema: \"{}\" has had its table definitions", schema),
+                &format!("{}: Table DDL", schema),
                 false,
             )
             .await?;
@@ -179,7 +189,7 @@ impl RefreshInventory {
                 ),
                 "table_name",
                 &config_path,
-                &format!("The schema: \"{}\" has had its table data", schema),
+                &format!("{}: Table data", schema),
                 true,
             )
             .await?;
@@ -217,7 +227,7 @@ impl RefreshInventory {
                 ),
                 "data_type",
                 &config_path,
-                &format!("The schema: \"{}\" has had its custom data types", schema),
+                &format!("{}: Data type", schema),
                 false,
             )
             .await?;
@@ -255,7 +265,7 @@ impl RefreshInventory {
                 ),
                 "views",
                 &config_path,
-                &format!("The schema: \"{}\" has had its views", schema),
+                &format!("{}: views", schema),
                 false,
             )
             .await?;
@@ -270,10 +280,13 @@ impl Action for RefreshInventory {
     async fn execute(&self) -> Result<()> {
         let pool = db_manager::get_db_connection().await?;
         if let SchemaListStatus::FirstLoad = self.refresh_schema_list(&pool).await? {
-            println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running refresh-inventory again. This will create the lists of functions and tables for you to configure", std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]);
+            println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running refresh-inventory again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
 
             return Ok(());
         }
+
+        // TODO: Refactor this to do all of the schemas in order rather than looping each time per
+        // function like a maniac
 
         self.refresh_function_lists(&pool).await?;
         self.refresh_table_ddl_list(&pool).await?;
