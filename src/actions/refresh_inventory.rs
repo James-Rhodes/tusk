@@ -49,12 +49,12 @@ impl RefreshInventory {
 
         let added = match change_status.added {
             0 => change_status.added.to_string().bold().yellow(),
-            _ => change_status.added.to_string().bold().green()
+            _ => change_status.added.to_string().bold().green(),
         };
 
         let removed = match change_status.removed {
             0 => change_status.removed.to_string().bold().yellow(),
-            _ => change_status.removed.to_string().bold().red()
+            _ => change_status.removed.to_string().bold().red(),
         };
         println!(
             "{} config file refreshed! Added: {added:<4}, Removed: {removed:<4}",
@@ -76,7 +76,7 @@ impl RefreshInventory {
                 ",
                 "schema_name",
                 SCHEMA_CONFIG_LOCATION,
-                "Schema",
+                "\nSchema",
                 true,
             )
             .await?;
@@ -89,129 +89,114 @@ impl RefreshInventory {
         return Ok(SchemaListStatus::AlreadyLoaded);
     }
 
-    async fn refresh_function_lists(&self, pool: &PgPool) -> Result<()> {
-        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+    async fn refresh_function_lists(&self, pool: &PgPool, schema: &str) -> Result<()> {
+        let mut config_path = format!("./.tusk/config/schemas/{}", schema);
+        std::fs::create_dir_all(&config_path)
+            .expect("Should be able to create the required directories");
+        config_path = config_path + "/functions_to_include.conf";
 
-        for schema in approved_schemas? {
-            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
-            std::fs::create_dir_all(&config_path)
-                .expect("Should be able to create the required directories");
-            config_path = config_path + "/functions_to_include.conf";
+        // Create the file that will contain the function config if it does not already exist
+        if !std::path::Path::new(&config_path).exists() {
+            std::fs::write(&config_path, "")?;
+        }
 
-            // Create the file that will contain the function config if it does not already exist
-            if !std::path::Path::new(&config_path).exists() {
-                std::fs::write(&config_path, "")?;
-            }
-
-            self.refresh_list(
-                pool,
-                &format!(
-                    "
+        self.refresh_list(
+            pool,
+            &format!(
+                "
                     SELECT DISTINCT routine_name AS function_name
                     FROM information_schema.routines
                     WHERE (routine_type = 'FUNCTION' OR routine_type = 'PROCEDURE')
                     AND routine_schema = '{}'
                     ORDER BY routine_name
                 ",
-                    schema
-                ),
-                "function_name",
-                &config_path,
-                &format!("{}: Functions", schema),
-                false,
-            )
-            .await?;
-        }
+                schema
+            ),
+            "function_name",
+            &config_path,
+            &format!("\t{}: Functions", schema.magenta()),
+            false,
+        )
+        .await?;
 
         return Ok(());
     }
 
-    async fn refresh_table_ddl_list(&self, pool: &PgPool) -> Result<()> {
-        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+    async fn refresh_table_ddl_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+        let mut config_path = format!("./.tusk/config/schemas/{}", schema);
+        std::fs::create_dir_all(&config_path)
+            .expect("Should be able to create the required directories");
+        config_path = config_path + "/table_ddl_to_include.conf";
 
-        for schema in approved_schemas? {
-            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
-            std::fs::create_dir_all(&config_path)
-                .expect("Should be able to create the required directories");
-            config_path = config_path + "/table_ddl_to_include.conf";
+        // Create the file that will contain the function config if it does not already exist
+        if !std::path::Path::new(&config_path).exists() {
+            std::fs::write(&config_path, "")?;
+        }
 
-            // Create the file that will contain the function config if it does not already exist
-            if !std::path::Path::new(&config_path).exists() {
-                std::fs::write(&config_path, "")?;
-            }
-
-            self.refresh_list(
-                pool,
-                &format!(
-                    "
+        self.refresh_list(
+            pool,
+            &format!(
+                "
                         SELECT table_name
                         FROM information_schema.tables
                         WHERE table_schema = '{}'
                         AND table_type ILIKE '%TABLE%';
                     ",
-                    schema
-                ),
-                "table_name",
-                &config_path,
-                &format!("{}: Table DDL", schema),
-                false,
-            )
-            .await?;
-        }
+                schema
+            ),
+            "table_name",
+            &config_path,
+            &format!("\t{}: Table DDL", schema.magenta()),
+            false,
+        )
+        .await?;
 
         return Ok(());
     }
 
-    async fn refresh_table_data_list(&self, pool: &PgPool) -> Result<()> {
-        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+    async fn refresh_table_data_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+        let mut config_path = format!("./.tusk/config/schemas/{}", schema);
+        std::fs::create_dir_all(&config_path)
+            .expect("Should be able to create the required directories");
+        config_path = config_path + "/table_data_to_include.conf";
 
-        for schema in approved_schemas? {
-            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
-            std::fs::create_dir_all(&config_path)
-                .expect("Should be able to create the required directories");
-            config_path = config_path + "/table_data_to_include.conf";
+        // Create the file that will contain the function config if it does not already exist
+        if !std::path::Path::new(&config_path).exists() {
+            std::fs::write(&config_path, "")?;
+        }
 
-            // Create the file that will contain the function config if it does not already exist
-            if !std::path::Path::new(&config_path).exists() {
-                std::fs::write(&config_path, "")?;
-            }
-
-            self.refresh_list(
-                pool,
-                &format!(
-                    "
+        self.refresh_list(
+            pool,
+            &format!(
+                "
                         SELECT table_name
                         FROM information_schema.tables
                         WHERE table_schema = '{}'
                         AND table_type ILIKE '%TABLE%';
                     ",
-                    schema
-                ),
-                "table_name",
-                &config_path,
-                &format!("{}: Table data", schema),
-                true,
-            )
-            .await?;
-        }
+                schema
+            ),
+            "table_name",
+            &config_path,
+            &format!("\t{}: Table data", schema.magenta()),
+            true,
+        )
+        .await?;
 
         return Ok(());
     }
-    async fn refresh_data_types_list(&self, pool: &PgPool) -> Result<()> {
-        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+    async fn refresh_data_types_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+        let mut config_path = format!("./.tusk/config/schemas/{}", schema);
+        std::fs::create_dir_all(&config_path)
+            .expect("Should be able to create the required directories");
+        config_path = config_path + "/data_types_to_include.conf";
 
-        for schema in approved_schemas? {
-            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
-            std::fs::create_dir_all(&config_path)
-                .expect("Should be able to create the required directories");
-            config_path = config_path + "/data_types_to_include.conf";
+        // Create the file that will contain the function config if it does not already exist
+        if !std::path::Path::new(&config_path).exists() {
+            std::fs::write(&config_path, "")?;
+        }
 
-            // Create the file that will contain the function config if it does not already exist
-            if !std::path::Path::new(&config_path).exists() {
-                std::fs::write(&config_path, "")?;
-            }
-
-            self.refresh_list(
+        self.refresh_list(
                 pool,
                 &format!(
                     "
@@ -227,33 +212,29 @@ impl RefreshInventory {
                 ),
                 "data_type",
                 &config_path,
-                &format!("{}: Data type", schema),
+                &format!("\t{}: Data type", schema.magenta()),
                 false,
             )
             .await?;
-        }
 
         return Ok(());
     }
 
-    async fn refresh_views_list(&self, pool: &PgPool) -> Result<()> {
-        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION);
+    async fn refresh_views_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+        let mut config_path = format!("./.tusk/config/schemas/{}", schema);
+        std::fs::create_dir_all(&config_path)
+            .expect("Should be able to create the required directories");
+        config_path = config_path + "/views_to_include.conf";
 
-        for schema in approved_schemas? {
-            let mut config_path = format!("./.tusk/config/schemas/{}", schema);
-            std::fs::create_dir_all(&config_path)
-                .expect("Should be able to create the required directories");
-            config_path = config_path + "/views_to_include.conf";
+        // Create the file that will contain the function config if it does not already exist
+        if !std::path::Path::new(&config_path).exists() {
+            std::fs::write(&config_path, "")?;
+        }
 
-            // Create the file that will contain the function config if it does not already exist
-            if !std::path::Path::new(&config_path).exists() {
-                std::fs::write(&config_path, "")?;
-            }
-
-            self.refresh_list(
-                pool,
-                &format!(
-                    "
+        self.refresh_list(
+            pool,
+            &format!(
+                "
                     SELECT c.oid::regclass::text as views
                     FROM pg_class c
                     JOIN pg_catalog.pg_namespace ns ON ns.oid = c.relnamespace 
@@ -261,15 +242,14 @@ impl RefreshInventory {
                     AND relkind IN ('m', 'v')
                     ORDER BY views
                     ",
-                    schema
-                ),
-                "views",
-                &config_path,
-                &format!("{}: views", schema),
-                false,
-            )
-            .await?;
-        }
+                schema
+            ),
+            "views",
+            &config_path,
+            &format!("\t{}: Views", schema.magenta()),
+            false,
+        )
+        .await?;
 
         return Ok(());
     }
@@ -278,21 +258,27 @@ impl RefreshInventory {
 #[async_trait]
 impl Action for RefreshInventory {
     async fn execute(&self) -> Result<()> {
+        println!("\nBeginning Inventory Refresh:");
+
         let pool = db_manager::get_db_connection().await?;
+
         if let SchemaListStatus::FirstLoad = self.refresh_schema_list(&pool).await? {
             println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running refresh-inventory again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
 
             return Ok(());
         }
 
-        // TODO: Refactor this to do all of the schemas in order rather than looping each time per
-        // function like a maniac
+        let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
-        self.refresh_function_lists(&pool).await?;
-        self.refresh_table_ddl_list(&pool).await?;
-        self.refresh_table_data_list(&pool).await?;
-        self.refresh_data_types_list(&pool).await?;
-        self.refresh_views_list(&pool).await?;
+        for schema in approved_schemas {
+            println!("\nBeginning {} schema refresh:", schema);
+            self.refresh_function_lists(&pool, &schema).await?;
+            self.refresh_table_ddl_list(&pool, &schema).await?;
+            self.refresh_table_data_list(&pool, &schema).await?;
+            self.refresh_data_types_list(&pool, &schema).await?;
+            self.refresh_views_list(&pool, &schema).await?;
+            println!();
+        }
 
         return Ok(());
     }
