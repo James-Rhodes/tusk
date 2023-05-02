@@ -25,7 +25,6 @@ pub fn get_connection_string() -> Result<String> {
 pub async fn get_db_connection() -> Result<PgPool> {
 
     let connection_string = get_connection_string()?;
-    println!("{}", connection_string);
 
     let pool = PgPoolOptions::new()
         .max_connections(MAX_DB_CONNECTIONS)
