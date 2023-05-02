@@ -2,6 +2,7 @@ pub mod syncers;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Args;
+use colored::Colorize;
 use futures::TryStreamExt;
 use sqlx::PgPool;
 
@@ -64,6 +65,7 @@ impl Sync {
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
+            println!("\tSyncing {}", file_path.magenta());
             let parent_dir =
                 std::path::Path::new(&file_path)
                     .parent()
@@ -95,6 +97,7 @@ impl Sync {
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
+            println!("\tSyncing {}", file_path.magenta());
             let parent_dir =
                 std::path::Path::new(&file_path)
                     .parent()
@@ -125,7 +128,7 @@ impl Sync {
     ) -> Result<()> {
         if self.all {
             // we want to sync everything if self.all is true
-            Self::sync_all::<T>(pool, schema_name, config_file_path,).await?;
+            Self::sync_all::<T>(pool, schema_name, config_file_path).await?;
         }
 
         if let Some(input_items) = input_items {
@@ -135,8 +138,6 @@ impl Sync {
             } else {
                 // Run a sync on the items in input_items
                 Self::sync_some::<T>(pool, schema_name, config_file_path, input_items).await?;
-
-
             }
         }
         return Ok(());
@@ -190,12 +191,13 @@ impl Action for Sync {
         let pool = db_manager::get_db_connection().await?;
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
-        // This is getting unmanageable. Create a Sync version that works for sql queries that can
-        // get the ddl. Write another version that works with another trait that defines how to
-        // call pg-dump for what is required.
-
         let connection_string = get_connection_string()?;
+
+        println!("\nBeginning Syncing:");
+
         for schema in approved_schemas {
+            println!("\nBeginning {} schema sync:", schema);
+
             // get the function ddl
             self.sync_sql::<FunctionSyncer>(
                 &pool,

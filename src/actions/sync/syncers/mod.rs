@@ -13,6 +13,7 @@ use crate::{
     },
 };
 use anyhow::Result;
+use colored::Colorize;
 use futures::Stream;
 use sqlx::PgPool;
 
@@ -91,6 +92,7 @@ pub trait PgDumpSyncer {
 
         for item in approved_items {
             let file_path = format!("{}/{}.sql", &ddl_parent_dir, item);
+            println!("\tSyncing {}", file_path.magenta());
 
             let mut args = vec![&db_name_arg];
             let user_args = Self::pg_dump_arg_gen(schema, &item);
@@ -136,6 +138,7 @@ pub trait PgDumpSyncer {
 
         for item in items {
             let file_path = format!("{}/{}.sql", &ddl_parent_dir, item);
+            println!("\tSyncing {}", file_path.magenta());
             let mut args = vec![&db_name_arg];
             let user_args = Self::pg_dump_arg_gen(schema, &item);
             args.extend(user_args.iter());
