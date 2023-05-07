@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use crate::actions::{init::Init,sync::Sync};
+use crate::actions::{init::Init,sync::Sync, push::Push};
 use crate::actions::refresh_inventory::RefreshInventory;
 use crate::actions::Action as CliAction;
 
@@ -21,7 +21,7 @@ pub enum Action {
     Sync(Sync),
 
     /// Push the changes in the local function DDL to the database
-    Push,
+    Push(Push),
 
     /// Creates a list of all schemas, tables, views and functions within the Database defined by the
     /// connection in ./.tusk/.env
@@ -33,7 +33,7 @@ impl Action {
         match self {
             Self::Init(init) => init.execute(),
             Self::Sync(sync) => sync.execute(),
-            Self::Push => todo!(),
+            Self::Push(push) => push.execute(),
             Self::RefreshInventory(ri) => ri.execute(),
         }
         .await?;
