@@ -66,6 +66,21 @@ pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
     return Ok(result);
 }
 
+pub fn get_commented_file_contents(file_path: &str) -> Result<Vec<String>> {
+    let result = std::fs::read_to_string(file_path)?
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.starts_with("//") {
+                return Some(line.replace("//", ""));
+            }
+            return None;
+        })
+        .collect::<Vec<String>>();
+
+    return Ok(result);
+}
+
 pub fn get_matching_uncommented_file_contents<'u>(
     uncommented_contents: &'u Vec<String>,
     patterns: &Vec<String>,
@@ -202,6 +217,28 @@ mod tests {
                 get_uncommented_file_contents(&file_path)
                     .expect("This should never fail in this scenario"),
                 vec!["should_show", "should show too with spaces"]
+            );
+        }
+
+        #[test]
+        fn get_commented_file_contents_works() {
+            let temp_test_dir =
+                tempdir_in(".").expect("Temporary Directory should not fail to be created");
+            let file_path = String::from(
+                temp_test_dir
+                    .path()
+                    .join("test_config.txt")
+                    .to_str()
+                    .unwrap(),
+            );
+            println!("{}", file_path);
+
+            std::fs::write(&file_path, "//should_show\nshould_not_show\nshould not show too with spaces\n   //should show with spaces").unwrap();
+
+            assert_eq!(
+                get_commented_file_contents(&file_path)
+                    .expect("This should never fail in this scenario"),
+                vec!["should_show", "should show with spaces"]
             );
         }
 
