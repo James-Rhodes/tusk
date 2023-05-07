@@ -9,7 +9,7 @@ use std::pin::Pin;
 use crate::{
     actions::sync::DDL,
     config_file_manager::{
-        format_config_file, get_matching_uncommented_file_contents, get_uncommented_file_contents,
+        format_config_file, get_matching_file_contents, get_uncommented_file_contents,
     },
 };
 use anyhow::Result;
@@ -48,7 +48,7 @@ pub trait SQLSyncer {
 
         let approved_data_types = get_uncommented_file_contents(&config_file_path)?;
         let items =
-            get_matching_uncommented_file_contents(&approved_data_types, &items, Some(schema))?
+            get_matching_file_contents(&approved_data_types, &items, Some(schema))?
                 .into_iter()
                 .map(|item| item.clone())
                 .collect::<Vec<String>>();
@@ -122,7 +122,7 @@ pub trait PgDumpSyncer {
 
         let approved_tables = get_uncommented_file_contents(&config_file_path)?;
 
-        let items = get_matching_uncommented_file_contents(&approved_tables, items, Some(schema))?;
+        let items = get_matching_file_contents(&approved_tables, items, Some(schema))?;
 
         if items.is_empty() {
             return Ok(());

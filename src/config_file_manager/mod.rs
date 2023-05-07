@@ -81,15 +81,15 @@ pub fn get_commented_file_contents(file_path: &str) -> Result<Vec<String>> {
     return Ok(result);
 }
 
-pub fn get_matching_uncommented_file_contents<'u>(
-    uncommented_contents: &'u Vec<String>,
+pub fn get_matching_file_contents<'u>(
+    file_contents: &'u Vec<String>,
     patterns: &Vec<String>,
     schema_to_match: Option<&str>,
 ) -> Result<Vec<&'u String>> {
     let mut matching_items = patterns
         .iter()
         .filter_map(|item| {
-            let matches_approved = uncommented_contents
+            let matches = file_contents
                 .iter()
                 .filter(|table| match (item.split_once("."), schema_to_match) {
                     (Some((schema_name, item_to_match)), Some(schema_to_match)) => {
@@ -101,8 +101,8 @@ pub fn get_matching_uncommented_file_contents<'u>(
                 })
                 .collect::<Vec<&String>>();
 
-            if matches_approved.len() != 0 {
-                return Some(matches_approved);
+            if matches.len() != 0 {
+                return Some(matches);
             }
 
             return None;
@@ -243,7 +243,7 @@ mod tests {
         }
 
         #[test]
-        fn get_matching_uncommented_file_contents_works() {
+        fn get_matching_file_contents_works() {
             let test_uncommented_contents = vec![
                 String::from("Test_One"),
                 String::from("Test_Two"),
@@ -251,7 +251,7 @@ mod tests {
             ];
 
             assert_eq!(
-                get_matching_uncommented_file_contents(
+                get_matching_file_contents(
                     &test_uncommented_contents,
                     &vec![String::from("Test")],
                     None
@@ -261,7 +261,7 @@ mod tests {
             );
 
             assert_eq!(
-                get_matching_uncommented_file_contents(
+                get_matching_file_contents(
                     &test_uncommented_contents,
                     &vec![String::from("Test"), String::from("un")],
                     None
@@ -271,7 +271,7 @@ mod tests {
             );
 
             assert_eq!(
-                get_matching_uncommented_file_contents(
+                get_matching_file_contents(
                     &test_uncommented_contents,
                     &vec![
                         String::from("Test_O"),
@@ -285,7 +285,7 @@ mod tests {
             );
 
             assert_eq!(
-                get_matching_uncommented_file_contents(
+                get_matching_file_contents(
                     &test_uncommented_contents,
                     &vec![String::from("schema_name.%"),],
                     Some("schema_name")
