@@ -260,9 +260,10 @@ impl Action for RefreshInventory {
     async fn execute(&self) -> Result<()> {
         println!("\nBeginning Inventory Refresh:");
 
-        let pool = db_manager::get_db_connection().await?;
+        let connection = db_manager::DbConnection::new().await?;
+        let pool = connection.get_connection_pool();
 
-        if let SchemaListStatus::FirstLoad = self.refresh_schema_list(&pool).await? {
+        if let SchemaListStatus::FirstLoad = self.refresh_schema_list(pool).await? {
             println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running refresh-inventory again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
 
             return Ok(());
@@ -272,11 +273,11 @@ impl Action for RefreshInventory {
 
         for schema in approved_schemas {
             println!("\nBeginning {} schema refresh:", schema);
-            self.refresh_function_lists(&pool, &schema).await?;
-            self.refresh_table_ddl_list(&pool, &schema).await?;
-            self.refresh_table_data_list(&pool, &schema).await?;
-            self.refresh_data_types_list(&pool, &schema).await?;
-            self.refresh_views_list(&pool, &schema).await?;
+            self.refresh_function_lists(pool, &schema).await?;
+            self.refresh_table_ddl_list(pool, &schema).await?;
+            self.refresh_table_data_list(pool, &schema).await?;
+            self.refresh_data_types_list(pool, &schema).await?;
+            self.refresh_views_list(pool, &schema).await?;
             println!();
         }
 

@@ -9,7 +9,7 @@ use sqlx::PgPool;
 use crate::{
     actions::Action,
     config_file_manager::get_uncommented_file_contents,
-    db_manager::{self, get_connection_string},
+    db_manager
 };
 
 use self::syncers::{
@@ -188,10 +188,11 @@ impl Sync {
 #[async_trait]
 impl Action for Sync {
     async fn execute(&self) -> anyhow::Result<()> {
-        let pool = db_manager::get_db_connection().await?;
+        let connection = db_manager::DbConnection::new().await?;
+        let pool = connection.get_connection_pool();
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
-        let connection_string = get_connection_string()?;
+        let connection_string = connection.get_connection_string();
 
         println!("\nBeginning Syncing:");
 
@@ -200,7 +201,7 @@ impl Action for Sync {
 
             // get the function ddl
             self.sync_sql::<FunctionSyncer>(
-                &pool,
+                pool,
                 &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/functions_to_include.conf",
@@ -218,7 +219,7 @@ impl Action for Sync {
                     schema,
                 ),
                 &format!("./schemas/{}/table_ddl", schema),
-                &connection_string,
+                connection_string,
                 &self.table_ddl,
             )?;
 
@@ -230,13 +231,13 @@ impl Action for Sync {
                     schema,
                 ),
                 &format!("./schemas/{}/table_data", schema),
-                &connection_string,
+                connection_string,
                 &self.table_data,
             )?;
 
             // get the data_types ddl
             self.sync_sql::<DataTypeSyncer>(
-                &pool,
+                pool,
                 &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/data_types_to_include.conf",
@@ -251,7 +252,7 @@ impl Action for Sync {
                 &schema,
                 &format!("./.tusk/config/schemas/{}/views_to_include.conf", schema,),
                 &format!("./schemas/{}/views", schema),
-                &connection_string,
+                connection_string,
                 &self.views,
             )?;
         }

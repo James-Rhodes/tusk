@@ -139,7 +139,8 @@ impl Push {
 #[async_trait]
 impl Action for Push {
     async fn execute(&self) -> anyhow::Result<()> {
-        let pool = db_manager::get_db_connection().await?;
+        let connection = db_manager::DbConnection::new().await?;
+        let pool = connection.get_connection_pool();
 
         let schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
@@ -165,7 +166,7 @@ impl Action for Push {
                 }
                 for func in local_funcs.iter() {
                     self.push_func(
-                        &pool,
+                        pool,
                         &func,
                         local_func_paths
                             .get(func)
@@ -184,7 +185,7 @@ impl Action for Push {
 
                 for func in matching_local_funcs {
                     self.push_func(
-                        &pool,
+                        pool,
                         &func,
                         local_func_paths
                             .get(func)
