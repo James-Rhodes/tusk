@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use dotenvy;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
@@ -131,11 +131,11 @@ impl DbConnection {
         // TODO: Add context to all of the below errors so that they make more sense for users
         dotenvy::from_filename("./.tusk/.env")?;
 
-        let db_user = dotenvy::var("DB_USER")?;
-        let db_pass = dotenvy::var("DB_PASSWORD")?;
-        let db_host = dotenvy::var("DB_HOST")?;
-        let db_port = dotenvy::var("DB_PORT")?;
-        let db_name = dotenvy::var("DB_NAME")?;
+        let db_user = dotenvy::var("DB_USER").context("Required environment variable DB_USER is not set in ./.tusk/.env please set this to continue")?;
+        let db_pass = dotenvy::var("DB_PASSWORD").context("Required environment variable DB_PASSWORD is not set in ./.tusk/.env please set this to continue")?;
+        let db_host = dotenvy::var("DB_HOST").context("Required environment variable DB_HOST is not set in ./.tusk/.env please set this to continue")?;
+        let db_port = dotenvy::var("DB_PORT").context("Required environment variable DB_PORT is not set in ./.tusk/.env please set this to continue")?;
+        let db_name = dotenvy::var("DB_NAME").context("Required environment variable DB_NAME is not set in ./.tusk/.env please set this to continue")?;
 
         let use_ssh = dotenvy::var("USE_SSH");
         let ssh_remote_ip_address = dotenvy::var("SSH_REMOTE_IP_ADDRESS");
@@ -146,10 +146,10 @@ impl DbConnection {
         let ssh_connection: Option<SSHConnection> = if let Ok(use_ssh) = use_ssh {
             if use_ssh == "TRUE" {
                 Some(SSHConnection::new(
-                    ssh_remote_ip_address?,
-                    ssh_user?,
-                    ssh_local_port?,
-                    ssh_remote_port?,
+                    ssh_remote_ip_address.context("Required environment variable SSH_REMOTE_IP_ADDRESS is not set in ./.tusk/.env please set this to continue")?,
+                    ssh_user.context("Required environment variable SSH_USERNAME is not set in ./.tusk/.env please set this to continue")?,
+                    ssh_local_port.context("Required environment variable SSH_LOCAL_PORT is not set in ./.tusk/.env please set this to continue")?,
+                    ssh_remote_port.context("Required environment variable SSH_REMOTE_PORT is not set in ./.tusk/.env please set this to continue")?,
                 ))
             } else {
                 None
