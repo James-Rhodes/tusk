@@ -143,7 +143,7 @@ impl Sync {
         return Ok(());
     }
 
-    fn sync_pg_dump<T: syncers::PgDumpSyncer>(
+    async fn sync_pg_dump<T: syncers::PgDumpSyncer>(
         &self,
         schema_name: &str,
         config_file_path: &str,
@@ -158,7 +158,7 @@ impl Sync {
                 config_file_path,
                 ddl_parent_dir,
                 connection_string,
-            )?;
+            ).await?;
         }
 
         if let Some(input_items) = input_items {
@@ -169,7 +169,7 @@ impl Sync {
                     config_file_path,
                     ddl_parent_dir,
                     connection_string,
-                )?;
+                ).await?;
             } else {
                 // Run a sync on the items in input_items
                 T::get(
@@ -178,7 +178,7 @@ impl Sync {
                     ddl_parent_dir,
                     connection_string,
                     input_items,
-                )?;
+                ).await?;
             }
         }
         return Ok(());
@@ -221,7 +221,7 @@ impl Action for Sync {
                 &format!("./schemas/{}/table_ddl", schema),
                 connection_string,
                 &self.table_ddl,
-            )?;
+            ).await?;
 
             // get the table data
             self.sync_pg_dump::<TableDataSyncer>(
@@ -233,7 +233,7 @@ impl Action for Sync {
                 &format!("./schemas/{}/table_data", schema),
                 connection_string,
                 &self.table_data,
-            )?;
+            ).await?;
 
             // get the data_types ddl
             self.sync_sql::<DataTypeSyncer>(
@@ -254,7 +254,7 @@ impl Action for Sync {
                 &format!("./schemas/{}/views", schema),
                 connection_string,
                 &self.views,
-            )?;
+            ).await?;
         }
         return Ok(());
     }
