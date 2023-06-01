@@ -158,7 +158,6 @@ pub trait PgDumpSyncer: Send + 'static {
 
         let file_path = format!("{}/{}.sql", ddl_parent_dir, item);
 
-        println!("\tSyncing {}", file_path.magenta());
 
         let mut args = vec![db_name_arg.to_owned()];
         let user_args = Self::pg_dump_arg_gen(&schema, &item);
@@ -173,6 +172,7 @@ pub trait PgDumpSyncer: Send + 'static {
         let ddl = Self::get_ddl_from_bytes(&command_out)?;
 
         tokio::fs::write(&file_path, ddl).await?;
+        println!("\tSyncing {}", file_path.magenta());
         Ok(())
     }
 }
