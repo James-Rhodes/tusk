@@ -12,13 +12,15 @@ const DATA_TYPE_QUERY:&str = "
                 AND ns.nspname = $1
             ),
             type_info AS (
-                SELECT type_schema,
+                SELECT 
+                type_schema,
                     a.attrelid::regclass AS type_name,
-                    E'\t' || attname || ' ' ||  CASE WHEN ns.nspname = 'pg_catalog' THEN '' ELSE ns.nspname || '.' END || FORMAT_TYPE(a.atttypid, a.atttypmod) AS attr_def
-                FROM pg_attribute a
-                JOIN pg_catalog.pg_type pt ON pt.oid = a.atttypid 
-                JOIN pg_catalog.pg_namespace ns ON typnamespace = ns.oid
-                JOIN all_types ON all_types.type_name = a.attrelid::REGCLASS::TEXT
+                    E'\t' || attname || ' ' || FORMAT_TYPE(a.atttypid, a.atttypmod) AS attr_def
+                FROM pg_type pt
+                JOIN pg_catalog.pg_attribute a ON pt.typrelid = a.attrelid OR a.attrelid = pt.typarray 
+                JOIN pg_type pt2 ON a.atttypid = pt2.oid
+                JOIN pg_catalog.pg_namespace ns ON pt2.typnamespace = ns.oid
+                JOIN all_types ON all_types.type_name = pt.typname
                 WHERE attnum > 0 AND all_types.type_type = 'c'
             ),
             custom_type_defs AS (
