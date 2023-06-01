@@ -235,7 +235,7 @@ impl RefreshInventory {
             pool,
             &format!(
                 "
-                    SELECT c.oid::regclass::text as views
+                    SELECT c.relname as views
                     FROM pg_class c
                     JOIN pg_catalog.pg_namespace ns ON ns.oid = c.relnamespace 
                     WHERE ns.nspname = '{}'
