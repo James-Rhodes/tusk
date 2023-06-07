@@ -38,7 +38,7 @@ fn format_config_file_contents(
             }
 
             if let Some(to_filter_out) = to_filter_out {
-                if to_filter_out.contains(&(db_item.replace("//", ""))) {
+                if to_filter_out.contains(&(db_item.replace("//", "").replace("#", ""))) {
                     return None;
                 }
             }
@@ -47,7 +47,7 @@ fn format_config_file_contents(
         })
         .collect();
 
-    file_contents.sort_by_key(|val| val.replace("//", "").replace(" ", ""));
+    file_contents.sort_by_key(|val| val.replace("//", "").replace(" ", "").replace("#", ""));
 
     return file_contents;
 }
@@ -56,7 +56,8 @@ pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
     let result = std::fs::read_to_string(file_path)?
         .lines()
         .filter_map(|line| {
-            if line.trim().starts_with("//") {
+            let line_trimmed = line.trim();
+            if line_trimmed.starts_with("//") || line_trimmed.starts_with("#") {
                 return None;
             }
             return Some(String::from(line));
@@ -71,8 +72,8 @@ pub fn get_commented_file_contents(file_path: &str) -> Result<Vec<String>> {
         .lines()
         .filter_map(|line| {
             let line = line.trim();
-            if line.starts_with("//") {
-                return Some(line.replace("//", ""));
+            if line.starts_with("//") || line.starts_with("#") {
+                return Some(line.replace("//", "").replace("#", ""));
             }
             return None;
         })
@@ -131,7 +132,7 @@ pub fn update_file_contents_from_db(
 
     let all_local_contents: HashSet<String> = local_file_contents
         .lines()
-        .map(|line| line.replace("//", "").replace(" ", ""))
+        .map(|line| line.replace("//", "").replace(" ", "").replace("#", ""))
         .collect();
 
     let not_in_local = from_db.difference(&all_local_contents);
@@ -170,7 +171,7 @@ mod tests {
 
         #[test]
         fn format_config_file_contents_works() {
-            let file_contents = "A\nB\nC_something with spaces\n//D_commented_out\n//E commented out with spaces   \nto_be_filtered_out\n//to_be_filtered_out_commented   ";
+            let file_contents = "A\nB\nC_something with spaces\n//D_commented_out\n//E commented out with spaces   \nto_be_filtered_out\n//to_be_filtered_out_commented   \n#F_HashComment";
 
             let filter_one = String::from("to_be_filtered_out");
             let filter_two = String::from("to_be_filtered_out_commented");
@@ -188,7 +189,8 @@ mod tests {
                     "B",
                     "C_somethingwithspaces",
                     "//D_commented_out",
-                    "//Ecommentedoutwithspaces"
+                    "//Ecommentedoutwithspaces",
+                    "#F_HashComment"
                 ]
             )
         }
@@ -211,7 +213,7 @@ mod tests {
             );
             println!("{}", file_path);
 
-            std::fs::write(&file_path, "//dont_show\nshould_show\nshould show too with spaces\n   //shouldnt show with spaces").unwrap();
+            std::fs::write(&file_path, "//dont_show\nshould_show\nshould show too with spaces\n   //shouldnt show with spaces\n#shouldn't show either with hash").unwrap();
 
             assert_eq!(
                 get_uncommented_file_contents(&file_path)
@@ -233,12 +235,12 @@ mod tests {
             );
             println!("{}", file_path);
 
-            std::fs::write(&file_path, "//should_show\nshould_not_show\nshould not show too with spaces\n   //should show with spaces").unwrap();
+            std::fs::write(&file_path, "//should_show\nshould_not_show\nshould not show too with spaces\n   //should show with spaces\n#should show with hash").unwrap();
 
             assert_eq!(
                 get_commented_file_contents(&file_path)
                     .expect("This should never fail in this scenario"),
-                vec!["should_show", "should show with spaces"]
+                vec!["should_show", "should show with spaces", "should show with hash"]
             );
         }
 
