@@ -75,6 +75,7 @@ pub trait PgDumpSyncer: Send + 'static {
         config_file_path: &str,
         ddl_parent_dir: &str,
         connection_string: &str,
+        pg_bin_path: &str,
     ) -> Result<()> {
         format_config_file(&config_file_path)?;
 
@@ -92,7 +93,13 @@ pub trait PgDumpSyncer: Send + 'static {
 
         let mut join_handles = Vec::with_capacity(approved_items.len());
         for item in approved_items {
-            join_handles.push(tokio::spawn(Self::run_pg_dump(schema.to_string(), db_name_arg.clone(), item.to_string(), ddl_parent_dir.to_string())));
+            join_handles.push(tokio::spawn(Self::run_pg_dump(
+                schema.to_string(),
+                pg_bin_path.to_string(),
+                db_name_arg.clone(),
+                item.to_string(),
+                ddl_parent_dir.to_string(),
+            )));
         }
 
         for jh in join_handles {
@@ -107,6 +114,7 @@ pub trait PgDumpSyncer: Send + 'static {
         config_file_path: &str,
         ddl_parent_dir: &str,
         connection_string: &str,
+        pg_bin_path: &str,
         items: &Vec<String>,
     ) -> Result<()> {
         format_config_file(&config_file_path)?;
@@ -127,13 +135,18 @@ pub trait PgDumpSyncer: Send + 'static {
 
         let mut join_handles = Vec::with_capacity(items.len());
         for item in items {
-            join_handles.push(tokio::spawn(Self::run_pg_dump(schema.to_string(), db_name_arg.clone(), item.clone(), ddl_parent_dir.to_string())));
+            join_handles.push(tokio::spawn(Self::run_pg_dump(
+                schema.to_string(),
+                pg_bin_path.to_string(),
+                db_name_arg.clone(),
+                item.clone(),
+                ddl_parent_dir.to_string(),
+            )));
         }
 
         for jh in join_handles {
             jh.await??;
         }
-
 
         return Ok(());
     }
@@ -146,24 +159,22 @@ pub trait PgDumpSyncer: Send + 'static {
         }
 
         return Ok(&ddl);
-
     }
 
     async fn run_pg_dump(
         schema: String,
+        pg_bin_path: String,
         db_name_arg: String,
         item: String,
         ddl_parent_dir: String,
     ) -> Result<()> {
-
         let file_path = format!("{}/{}.sql", ddl_parent_dir, item);
-
 
         let mut args = vec![db_name_arg.to_owned()];
         let user_args = Self::pg_dump_arg_gen(&schema, &item);
         args.extend(user_args.into_iter());
 
-        let command_out = tokio::process::Command::new("pg_dump")
+        let command_out = tokio::process::Command::new(pg_bin_path)
             .args(args)
             .output()
             .await?

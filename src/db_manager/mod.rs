@@ -92,12 +92,14 @@ pub struct DbConnection {
     pool: PgPool,
     connection_string: String,
     _ssh_connection: Option<SSHConnection>,
+    pg_bin_path: String
 }
 
 impl DbConnection {
     pub async fn new() -> Result<Self> {
         let (_env_vars, _ssh_connection) = Self::get_db_env_vars()?;
 
+        let pg_bin_path = dotenvy::var("PG_BIN_PATH").unwrap_or_else(|_| String::from("pg_dump"));
         let connection_string = format!(
             "postgres://{}:{}@{}:{}/{}",
             _env_vars.db_user,
@@ -117,11 +119,16 @@ impl DbConnection {
             pool,
             connection_string,
             _ssh_connection,
+            pg_bin_path,
         });
     }
 
     pub fn get_connection_string(&self) -> &str {
         return &self.connection_string;
+    }
+
+    pub fn get_pg_bin_path(&self) -> &str {
+        return &self.pg_bin_path;
     }
 
     pub fn get_connection_pool(&self) -> &PgPool {

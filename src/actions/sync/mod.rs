@@ -149,6 +149,7 @@ impl Sync {
         config_file_path: &str,
         ddl_parent_dir: &str,
         connection_string: &str,
+        pg_bin_path: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
         if self.all {
@@ -158,6 +159,7 @@ impl Sync {
                 config_file_path,
                 ddl_parent_dir,
                 connection_string,
+                pg_bin_path
             ).await?;
         }
 
@@ -169,6 +171,7 @@ impl Sync {
                     config_file_path,
                     ddl_parent_dir,
                     connection_string,
+                    pg_bin_path
                 ).await?;
             } else {
                 // Run a sync on the items in input_items
@@ -177,6 +180,7 @@ impl Sync {
                     config_file_path,
                     ddl_parent_dir,
                     connection_string,
+                    pg_bin_path,
                     input_items,
                 ).await?;
             }
@@ -193,6 +197,7 @@ impl Action for Sync {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
         let connection_string = connection.get_connection_string();
+        let pg_bin_path = connection.get_pg_bin_path();
 
         println!("\nBeginning Syncing:");
 
@@ -220,6 +225,7 @@ impl Action for Sync {
                 ),
                 &format!("./schemas/{}/table_ddl", schema),
                 connection_string,
+                pg_bin_path,
                 &self.table_ddl,
             ).await?;
 
@@ -232,6 +238,7 @@ impl Action for Sync {
                 ),
                 &format!("./schemas/{}/table_data", schema),
                 connection_string,
+                pg_bin_path,
                 &self.table_data,
             ).await?;
 
@@ -253,6 +260,7 @@ impl Action for Sync {
                 &format!("./.tusk/config/schemas/{}/views_to_include.conf", schema,),
                 &format!("./schemas/{}/views", schema),
                 connection_string,
+                pg_bin_path,
                 &self.views,
             ).await?;
         }
