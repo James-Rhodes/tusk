@@ -4,6 +4,7 @@ pub mod init;
 pub mod refresh_inventory;
 pub mod sync;
 pub mod push;
+pub mod unit_test;
 
 #[async_trait]
 pub trait Action {

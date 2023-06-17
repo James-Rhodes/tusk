@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use crate::actions::{init::Init,sync::Sync, push::Push};
+use crate::actions::{init::Init,sync::Sync, push::Push, unit_test::UnitTest};
 use crate::actions::refresh_inventory::RefreshInventory;
 use crate::actions::Action as CliAction;
 
@@ -26,6 +26,9 @@ pub enum Action {
     /// Creates a list of all schemas, tables, views and functions within the Database defined by the
     /// connection in ./.tusk/.env
     RefreshInventory(RefreshInventory),
+
+    /// Runs unit tests for all functions that have a unit test defined
+    Test(UnitTest),
 }
 
 impl Action {
@@ -35,6 +38,7 @@ impl Action {
             Self::Sync(sync) => sync.execute(),
             Self::Push(push) => push.execute(),
             Self::RefreshInventory(ri) => ri.execute(),
+            Action::Test(t) => t.execute(),
         }
         .await?;
 
