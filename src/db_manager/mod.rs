@@ -5,19 +5,19 @@ use sqlx::{postgres::PgPoolOptions, PgPool};
 const MAX_DB_CONNECTIONS: u32 = 5;
 
 struct SSHConnection {
-    remote_ip_address: String,
-    username: String,
-    _local_port: String,
-    _remote_port: String,
+    ssh_host: String,
+    user: String,
+    _local_bind_port: String,
+    _db_port: String,
 }
 
 impl SSHConnection {
     fn new(
-        local_ip_address: String,
-        remote_ip_address: String,
-        username: String,
-        local_port: String,
-        remote_port: String,
+        db_host: String,
+        ssh_host: String,
+        user: String,
+        local_bind_port: String,
+        db_port: String,
     ) -> Self {
         // Perform the SSH process call
 
@@ -29,11 +29,11 @@ impl SSHConnection {
             .arg("backup-socket")
             .arg("-O")
             .arg("exit")
-            .arg(format!("{}@{}", username, remote_ip_address))
+            .arg(format!("{}@{}", user, ssh_host))
             .output()
             .expect(&format!(
                 "Failed to close any ports currently on backup-socket to {}@{}",
-                username, remote_ip_address
+                user, ssh_host
             ));
 
         // Forward the port
@@ -46,17 +46,17 @@ impl SSHConnection {
             .arg("-L")
             .arg(format!(
                 "{}:{}:{}",
-                local_port, local_ip_address, remote_port
+                local_bind_port, db_host, db_port
             ))
-            .arg(format!("{}@{}", username, remote_ip_address))
+            .arg(format!("{}@{}", user, ssh_host))
             .output()
-            .expect(&format!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_port, remote_port, remote_ip_address, username));
+            .expect(&format!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_bind_port, db_port, ssh_host, user));
 
         return SSHConnection {
-            remote_ip_address,
-            username,
-            _local_port: local_port,
-            _remote_port: remote_port,
+            ssh_host,
+            user,
+            _local_bind_port: local_bind_port,
+            _db_port: db_port,
         };
     }
 }
@@ -70,11 +70,11 @@ impl Drop for SSHConnection {
             .arg("backup-socket")
             .arg("-O")
             .arg("exit")
-            .arg(format!("{}@{}", self.username, self.remote_ip_address))
+            .arg(format!("{}@{}", self.user, self.ssh_host))
             .output()
             .expect(&format!(
                 "Failed to close any ports currently on backup-socket to {}@{}",
-                self.username, self.remote_ip_address
+                self.user, self.ssh_host
             ));
     }
 }
@@ -141,25 +141,27 @@ impl DbConnection {
 
         let db_user = dotenvy::var("DB_USER").context("Required environment variable DB_USER is not set in ./.tusk/.env please set this to continue")?;
         let db_pass = dotenvy::var("DB_PASSWORD").context("Required environment variable DB_PASSWORD is not set in ./.tusk/.env please set this to continue")?;
-        let db_host = dotenvy::var("DB_HOST").context("Required environment variable DB_HOST is not set in ./.tusk/.env please set this to continue")?;
+        let mut db_host = dotenvy::var("DB_HOST").context("Required environment variable DB_HOST is not set in ./.tusk/.env please set this to continue")?;
         let mut db_port = dotenvy::var("DB_PORT").context("Required environment variable DB_PORT is not set in ./.tusk/.env please set this to continue")?;
         let db_name = dotenvy::var("DB_NAME").context("Required environment variable DB_NAME is not set in ./.tusk/.env please set this to continue")?;
 
         let use_ssh = dotenvy::var("USE_SSH");
-        let ssh_remote_ip_address = dotenvy::var("SSH_REMOTE_IP_ADDRESS");
-        let ssh_user = dotenvy::var("SSH_USERNAME");
-        let ssh_local_port = dotenvy::var("SSH_LOCAL_PORT");
-        let ssh_remote_port = dotenvy::var("SSH_REMOTE_PORT");
+        let ssh_host = dotenvy::var("SSH_HOST");
+        let ssh_user = dotenvy::var("SSH_USER");
+        let ssh_local_bind_port = dotenvy::var("SSH_LOCAL_BIND_PORT");
 
         let ssh_connection: Option<SSHConnection> = if let Ok(use_ssh) = use_ssh {
             if use_ssh == "TRUE" {
-                db_port = ssh_local_port.context("Required environment variable SSH_LOCAL_PORT is not set in ./.tusk/.env please set this to continue")?;
+                let remote_db_port = db_port.clone();
+                let remote_db_host = db_host.clone();
+                db_host = String::from("127.0.0.1"); // For pg connection we are now connecting through local host
+                db_port = ssh_local_bind_port.context("Required environment variable SSH_LOCAL_BIND_PORT is not set in ./.tusk/.env please set this to continue")?;
                 Some(SSHConnection::new(
-                    db_host.clone(),
-                    ssh_remote_ip_address.context("Required environment variable SSH_REMOTE_IP_ADDRESS is not set in ./.tusk/.env please set this to continue")?,
-                    ssh_user.context("Required environment variable SSH_USERNAME is not set in ./.tusk/.env please set this to continue")?,
+                    remote_db_host,
+                    ssh_host.context("Required environment variable SSH_HOST is not set in ./.tusk/.env please set this to continue")?,
+                    ssh_user.context("Required environment variable SSH_USER is not set in ./.tusk/.env please set this to continue")?,
                     db_port.clone(),
-                    ssh_remote_port.context("Required environment variable SSH_REMOTE_PORT is not set in ./.tusk/.env please set this to continue")?,
+                    remote_db_port
                 ))
             } else {
                 None
