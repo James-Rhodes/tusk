@@ -1,4 +1,4 @@
-use crate::actions::sync::syncers::SQLSyncer;
+use crate::actions::pull::pullers::SQLPuller;
 
 const FUNCTION_DDL_QUERY: &str = "
             SELECT
@@ -12,9 +12,9 @@ const FUNCTION_DDL_QUERY: &str = "
             AND p.proname IN (SELECT * FROM UNNEST($2))
             ";
 
-pub struct FunctionSyncer {}
+pub struct FunctionPuller {}
 
-impl SQLSyncer for FunctionSyncer {
+impl SQLPuller for FunctionPuller {
     fn get_ddl_query() -> &'static str {
         return FUNCTION_DDL_QUERY;
     }

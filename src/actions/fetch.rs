@@ -17,10 +17,10 @@ enum SchemaListStatus {
 }
 
 #[derive(Debug, Args)]
-pub struct RefreshInventory {}
+pub struct Fetch {}
 
-impl RefreshInventory {
-    async fn refresh_list(
+impl Fetch {
+    async fn fetch_list(
         &self,
         pool: &PgPool,
         query: &str,
@@ -57,16 +57,16 @@ impl RefreshInventory {
             _ => change_status.removed.to_string().bold().red(),
         };
         println!(
-            "{} config file refreshed! Added: {added:<4}, Removed: {removed:<4}",
+            "{} config file fetched! Added: {added:<4}, Removed: {removed:<4}",
             list_type
         );
 
         return Ok(change_status);
     }
 
-    async fn refresh_schema_list(&self, pool: &PgPool) -> Result<SchemaListStatus> {
+    async fn fetch_schema_list(&self, pool: &PgPool) -> Result<SchemaListStatus> {
         let change_status = self
-            .refresh_list(
+            .fetch_list(
                 pool,
                 "
                     SELECT nspname schema_name
@@ -89,7 +89,7 @@ impl RefreshInventory {
         return Ok(SchemaListStatus::AlreadyLoaded);
     }
 
-    async fn refresh_function_lists(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_function_lists(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -100,7 +100,7 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -122,7 +122,7 @@ impl RefreshInventory {
         return Ok(());
     }
 
-    async fn refresh_table_ddl_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_table_ddl_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -133,7 +133,7 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -154,7 +154,7 @@ impl RefreshInventory {
         return Ok(());
     }
 
-    async fn refresh_table_data_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_table_data_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -165,7 +165,7 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -185,7 +185,7 @@ impl RefreshInventory {
 
         return Ok(());
     }
-    async fn refresh_data_types_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_data_types_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -196,7 +196,7 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        self.fetch_list(
                 pool,
                 &format!(
                     "
@@ -220,7 +220,7 @@ impl RefreshInventory {
         return Ok(());
     }
 
-    async fn refresh_views_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_views_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -231,7 +231,7 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -256,15 +256,15 @@ impl RefreshInventory {
 }
 
 #[async_trait]
-impl Action for RefreshInventory {
+impl Action for Fetch {
     async fn execute(&self) -> Result<()> {
-        println!("\nBeginning Inventory Refresh:");
+        println!("\nBeginning Inventory Fetch:");
 
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
 
-        if let SchemaListStatus::FirstLoad = self.refresh_schema_list(pool).await? {
-            println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running refresh-inventory again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
+        if let SchemaListStatus::FirstLoad = self.fetch_schema_list(pool).await? {
+            println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running fetch again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
 
             return Ok(());
         }
@@ -272,12 +272,12 @@ impl Action for RefreshInventory {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
         for schema in approved_schemas {
-            println!("\nBeginning {} schema refresh:", schema);
-            self.refresh_function_lists(pool, &schema).await?;
-            self.refresh_table_ddl_list(pool, &schema).await?;
-            self.refresh_table_data_list(pool, &schema).await?;
-            self.refresh_data_types_list(pool, &schema).await?;
-            self.refresh_views_list(pool, &schema).await?;
+            println!("\nBeginning {} schema fetch:", schema);
+            self.fetch_function_lists(pool, &schema).await?;
+            self.fetch_table_ddl_list(pool, &schema).await?;
+            self.fetch_table_data_list(pool, &schema).await?;
+            self.fetch_data_types_list(pool, &schema).await?;
+            self.fetch_views_list(pool, &schema).await?;
             println!();
         }
 

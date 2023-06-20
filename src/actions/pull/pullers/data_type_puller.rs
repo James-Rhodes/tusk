@@ -1,4 +1,4 @@
-use crate::actions::sync::syncers::SQLSyncer;
+use crate::actions::pull::pullers::SQLPuller;
 
 const DATA_TYPE_QUERY:&str = "
             WITH all_types AS (
@@ -90,9 +90,9 @@ const DATA_TYPE_QUERY:&str = "
             SELECT * FROM enum_defs
             ";
 
-pub struct DataTypeSyncer {}
+pub struct DataTypePuller {}
 
-impl SQLSyncer for DataTypeSyncer {
+impl SQLPuller for DataTypePuller {
     fn get_ddl_query() -> &'static str {
         return DATA_TYPE_QUERY;
     }

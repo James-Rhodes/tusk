@@ -1,13 +1,13 @@
-pub mod data_type_syncer;
-pub mod function_syncer;
-pub mod table_data_syncer;
-pub mod table_ddl_syncer;
-pub mod view_syncer;
+pub mod data_type_puller;
+pub mod function_puller;
+pub mod table_data_puller;
+pub mod table_ddl_puller;
+pub mod view_puller;
 
 use std::pin::Pin;
 
 use crate::{
-    actions::sync::DDL,
+    actions::pull::DDL,
     config_file_manager::{
         format_config_file, get_matching_file_contents, get_uncommented_file_contents,
     },
@@ -20,7 +20,7 @@ use sqlx::PgPool;
 
 pub type RowStream<'conn> = Pin<Box<dyn Stream<Item = Result<DDL, sqlx::Error>> + Send + 'conn>>;
 
-pub trait SQLSyncer {
+pub trait SQLPuller {
     // This returns all the DDL from a postgres query as a stream for writing manually to a file
     fn get_all<'conn>(
         pool: &'conn PgPool,
@@ -65,8 +65,8 @@ pub trait SQLSyncer {
 }
 
 #[async_trait]
-pub trait PgDumpSyncer: Send + 'static {
-    /// This is the function that needs to be implemented per syncer. It needs to return the
+pub trait PgDumpPuller: Send + 'static {
+    /// This is the function that needs to be implemented per puller. It needs to return the
     /// arguments required for pg_dump
     fn pg_dump_arg_gen(schema: &str, item_name: &str) -> Vec<String>;
 
@@ -183,7 +183,7 @@ pub trait PgDumpSyncer: Send + 'static {
         let ddl = Self::get_ddl_from_bytes(&command_out)?;
 
         tokio::fs::write(&file_path, ddl).await?;
-        println!("\tSyncing {}", file_path.magenta());
+        println!("\tPulling {}", file_path.magenta());
         Ok(())
     }
 }
