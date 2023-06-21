@@ -1,17 +1,23 @@
 use std::collections::HashMap;
 
+use std::sync::OnceLock;
+
 use serde::{Deserialize, Serialize};
+use anyhow::{Result, Context};
+
+
+static USER_CONFIG: OnceLock<UserConfig> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FetchOptions {
-    new_items_commented: HashMap<String, bool>,
-    delete_items_from_config: bool
+    pub new_items_commented: HashMap<String, bool>,
+    pub delete_items_from_config: bool
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PullOptions{
-    clean_ddl_before_pulling: bool,
-    pg_dump_additional_args: Vec<String>
+    pub clean_ddl_before_pulling: bool,
+    pub pg_dump_additional_args: Vec<String>
 }
 
 // #[derive(Debug, Serialize, Deserialize)]
@@ -19,9 +25,23 @@ pub struct PullOptions{
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserConfig {
-    fetch_options: FetchOptions,
-    pull_options: PullOptions,
+    pub fetch_options: FetchOptions,
+    pub pull_options: PullOptions,
     // _push_options: PushOptions
+}
+
+impl UserConfig{
+    pub fn init(file_path: &str) -> Result<()> {
+
+        let user_config = serde_yaml::from_str(&std::fs::read_to_string(file_path)?)?;
+        USER_CONFIG.set(user_config).expect("This should only be called by one thread in this application");
+
+        return Ok(());
+    }
+
+    pub fn get_global() -> Result<&'static UserConfig> {
+        return USER_CONFIG.get().context("User Config must be set before this variable can be used");
+    }
 }
 
 
@@ -35,10 +55,12 @@ mod tests {
         let test_yaml = r#"
 fetch_options:
     new_items_commented:
+      schemas: true
       functions: false
       table_ddl: false
       table_data: true
       views: false
+      data_types: false
     delete_items_from_config: true
 
 pull_options:
@@ -57,7 +79,9 @@ pull_options:
                     ("functions".to_string(), false), 
                     ("table_ddl".to_string(), false), 
                     ("table_data".to_string(), true), 
-                    ("views".to_string(), false)
+                    ("views".to_string(), false),
+                    ("schemas".to_string(), true),
+                    ("data_types".to_string(), false)
                 ]),
                 delete_items_from_config: true
             },
