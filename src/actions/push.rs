@@ -9,7 +9,7 @@ use walkdir;
 
 use crate::{
     actions::init::SCHEMA_CONFIG_LOCATION,
-    config_file_manager::{
+    config_file_manager::ddl_config::{
         get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
     },
     db_manager,

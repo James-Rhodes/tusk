@@ -8,7 +8,8 @@ use sqlx::postgres::PgRow;
 use sqlx::{PgPool, Row};
 
 use crate::actions::{init::SCHEMA_CONFIG_LOCATION, Action};
-use crate::config_file_manager::get_uncommented_file_contents;
+use crate::config_file_manager::ddl_config::get_uncommented_file_contents;
+
 use crate::{config_file_manager, db_manager};
 
 enum SchemaListStatus {
@@ -28,7 +29,7 @@ impl Fetch {
         file_loc: &str,
         list_type: &str,
         add_new_as_commented: bool,
-    ) -> Result<config_file_manager::ChangeStatus> {
+    ) -> Result<config_file_manager::ddl_config::ChangeStatus> {
         let db_list: HashSet<String> = sqlx::query(query)
             .map(|row: PgRow| {
                 let name: String = row.try_get(column_name).expect(&format!(
@@ -41,7 +42,7 @@ impl Fetch {
             .into_iter()
             .collect();
 
-        let change_status = config_file_manager::update_file_contents_from_db(
+        let change_status = config_file_manager::ddl_config::update_file_contents_from_db(
             file_loc,
             db_list,
             add_new_as_commented,

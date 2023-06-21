@@ -8,7 +8,7 @@ use std::pin::Pin;
 
 use crate::{
     actions::pull::DDL,
-    config_file_manager::{
+    config_file_manager::ddl_config::{
         format_config_file, get_matching_file_contents, get_uncommented_file_contents,
     },
 };

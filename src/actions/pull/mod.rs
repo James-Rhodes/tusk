@@ -8,7 +8,7 @@ use sqlx::PgPool;
 
 use crate::{
     actions::Action,
-    config_file_manager::get_uncommented_file_contents,
+    config_file_manager::ddl_config::get_uncommented_file_contents,
     db_manager
 };
 
