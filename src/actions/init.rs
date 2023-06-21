@@ -34,10 +34,12 @@ impl Init {
                 r#"
 fetch_options:
     new_items_commented:
+      schemas: true
       functions: false
       table_ddl: false
       table_data: true
       views: false
+      data_types: false
     delete_items_from_config: true
 
 pull_options:

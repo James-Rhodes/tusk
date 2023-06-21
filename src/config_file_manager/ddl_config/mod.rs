@@ -120,6 +120,7 @@ pub fn update_file_contents_from_db(
     file_path: &str,
     from_db: HashSet<String>,
     add_new_as_commented: bool,
+    delete_items_from_config: bool,
 ) -> Result<ChangeStatus> {
     // I am certain this function can be made more efficient. I am just running with this as a first draft
     // Benchmarks should be done at some stage to see if this can be improved by simply merging two
@@ -148,14 +149,25 @@ pub fn update_file_contents_from_db(
         added = added + 1;
     });
 
+    if delete_items_from_config {
+        std::fs::write(
+            file_path,
+            format_config_file_contents(&local_file_contents, &Some(&not_in_db)).join("\n"),
+        )?;
+
+        return Ok(ChangeStatus {
+            added,
+            removed: not_in_db.len() as u32,
+            amount_before_change: all_local_contents.len() as u32,
+        });
+    }
     std::fs::write(
         file_path,
-        format_config_file_contents(&local_file_contents, &Some(&not_in_db)).join("\n"),
+        format_config_file_contents(&local_file_contents, &None).join("\n"),
     )?;
-
     return Ok(ChangeStatus {
         added,
-        removed: not_in_db.len() as u32,
+        removed: 0,
         amount_before_change: all_local_contents.len() as u32,
     });
 }
@@ -240,7 +252,11 @@ mod tests {
             assert_eq!(
                 get_commented_file_contents(&file_path)
                     .expect("This should never fail in this scenario"),
-                vec!["should_show", "should show with spaces", "should show with hash"]
+                vec![
+                    "should_show",
+                    "should show with spaces",
+                    "should show with hash"
+                ]
             );
         }
 

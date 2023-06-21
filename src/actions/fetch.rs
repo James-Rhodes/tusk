@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use anyhow::Result;
+use anyhow::{Result, Context};
 use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
@@ -10,6 +10,7 @@ use sqlx::{PgPool, Row};
 use crate::actions::{init::SCHEMA_CONFIG_LOCATION, Action};
 use crate::config_file_manager::ddl_config::get_uncommented_file_contents;
 
+use crate::config_file_manager::user_config::UserConfig;
 use crate::{config_file_manager, db_manager};
 
 enum SchemaListStatus {
@@ -29,6 +30,7 @@ impl Fetch {
         file_loc: &str,
         list_type: &str,
         add_new_as_commented: bool,
+        delete_items_from_config: bool,
     ) -> Result<config_file_manager::ddl_config::ChangeStatus> {
         let db_list: HashSet<String> = sqlx::query(query)
             .map(|row: PgRow| {
@@ -46,6 +48,7 @@ impl Fetch {
             file_loc,
             db_list,
             add_new_as_commented,
+            delete_items_from_config,
         )?;
 
         let added = match change_status.added {
@@ -66,6 +69,11 @@ impl Fetch {
     }
 
     async fn fetch_schema_list(&self, pool: &PgPool) -> Result<SchemaListStatus> {
+
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("schemas").context("new_items_commented must contain a field schemas")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
         let change_status = self
             .fetch_list(
                 pool,
@@ -78,7 +86,8 @@ impl Fetch {
                 "schema_name",
                 SCHEMA_CONFIG_LOCATION,
                 "\nSchema",
-                true,
+                *new_items_commented,
+                delete_items_from_config
             )
             .await?;
 
@@ -101,6 +110,10 @@ impl Fetch {
             std::fs::write(&config_path, "")?;
         }
 
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("functions").context("new_items_commented must contain a field functions")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
         self.fetch_list(
             pool,
             &format!(
@@ -116,7 +129,8 @@ impl Fetch {
             "function_name",
             &config_path,
             &format!("\t{}: Functions", schema.magenta()),
-            false,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
@@ -134,6 +148,10 @@ impl Fetch {
             std::fs::write(&config_path, "")?;
         }
 
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("table_ddl").context("new_items_commented must contain a field table_ddl")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
         self.fetch_list(
             pool,
             &format!(
@@ -148,7 +166,8 @@ impl Fetch {
             "table_name",
             &config_path,
             &format!("\t{}: Table DDL", schema.magenta()),
-            false,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
@@ -166,6 +185,10 @@ impl Fetch {
             std::fs::write(&config_path, "")?;
         }
 
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("table_data").context("new_items_commented must contain a field table_data")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
         self.fetch_list(
             pool,
             &format!(
@@ -180,7 +203,8 @@ impl Fetch {
             "table_name",
             &config_path,
             &format!("\t{}: Table data", schema.magenta()),
-            true,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
@@ -196,6 +220,10 @@ impl Fetch {
         if !std::path::Path::new(&config_path).exists() {
             std::fs::write(&config_path, "")?;
         }
+
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("data_types").context("new_items_commented must contain a field data_types")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
 
         self.fetch_list(
                 pool,
@@ -214,7 +242,8 @@ impl Fetch {
                 "data_type",
                 &config_path,
                 &format!("\t{}: Data type", schema.magenta()),
-                false,
+                *new_items_commented,
+                delete_items_from_config
             )
             .await?;
 
@@ -232,6 +261,10 @@ impl Fetch {
             std::fs::write(&config_path, "")?;
         }
 
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("views").context("new_items_commented must contain a field views")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
         self.fetch_list(
             pool,
             &format!(
@@ -248,7 +281,8 @@ impl Fetch {
             "views",
             &config_path,
             &format!("\t{}: Views", schema.magenta()),
-            false,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
