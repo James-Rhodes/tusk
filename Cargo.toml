@@ -12,6 +12,8 @@ clap = { version = "4.2.1", features = ["derive"] }
 colored = "2.0.0"
 dotenvy = "0.15.6"
 futures = "0.3.27"
+serde = { version = "1.0.164", features = ["derive"] }
+serde_yaml = "0.9.21"
 sqlx = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres" ] }
 tokio = { version = "1", features = ["full"] }
 walkdir = "2.3.3"
