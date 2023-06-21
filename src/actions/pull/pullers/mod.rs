@@ -174,11 +174,18 @@ pub trait PgDumpPuller: Send + 'static {
         let user_args = Self::pg_dump_arg_gen(&schema, &item);
         args.extend(user_args.into_iter());
 
-        let command_out = tokio::process::Command::new(pg_bin_path)
+        let command = tokio::process::Command::new(pg_bin_path)
             .args(args)
             .output()
-            .await?
-            .stdout;
+            .await?;
+
+        let command_err = std::str::from_utf8(&command.stderr[..]).unwrap_or("");
+        if command_err.len() > 0 {
+            let command_err = command_err.trim_end().replace("\n", "\n\t\t");
+            println!("\t{}: {}", "Warning".yellow(), command_err);
+            return Ok(());
+        }
+        let command_out = command.stdout;
 
         let ddl = Self::get_ddl_from_bytes(&command_out)?;
 
