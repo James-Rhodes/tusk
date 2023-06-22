@@ -7,7 +7,9 @@ use futures::TryStreamExt;
 use sqlx::PgPool;
 
 use crate::{
-    actions::Action, config_file_manager::ddl_config::get_uncommented_file_contents, db_manager,
+    actions::Action,
+    config_file_manager::{ddl_config::get_uncommented_file_contents, user_config::UserConfig},
+    db_manager,
 };
 
 use self::pullers::{
@@ -64,7 +66,12 @@ impl Pull {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
             if ddl.definition.is_empty() {
-                println!("\t{} ({}): {}", "Warning".yellow(), file_path, "Does not exist within the database");
+                println!(
+                    "\t{} ({}): {}",
+                    "Warning".yellow(),
+                    file_path,
+                    "Does not exist within the database"
+                );
                 continue;
             }
             let parent_dir =
@@ -100,7 +107,12 @@ impl Pull {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
             if ddl.definition.is_empty() {
-                println!("\t{} ({}): {}", "Warning".yellow(), file_path, "Does not exist within the database");
+                println!(
+                    "\t{} ({}): {}",
+                    "Warning".yellow(),
+                    file_path,
+                    "Does not exist within the database"
+                );
                 continue;
             }
             let parent_dir =
@@ -130,16 +142,30 @@ impl Pull {
         pool: &PgPool,
         schema_name: &str,
         config_file_path: &str,
+        ddl_parent_dir: &str,
         input_items: &Option<Vec<String>>,
+        clean_before_pull: bool,
     ) -> Result<()> {
         if self.all {
             // we want to pull everything if self.all is true
+
+            if clean_before_pull {
+                // Remove the directory before repopulating
+                Self::clean_ddl_dir(ddl_parent_dir)?;
+            }
+
             Self::pull_all::<T>(pool, schema_name, config_file_path).await?;
         }
 
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
                 // Run a pull on all of the items
+
+                if clean_before_pull {
+                    // Remove the directory before repopulating
+                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                }
+
                 Self::pull_all::<T>(pool, schema_name, config_file_path).await?;
             } else {
                 // Run a pull on the items in input_items
@@ -157,9 +183,16 @@ impl Pull {
         connection_string: &str,
         pg_bin_path: &str,
         input_items: &Option<Vec<String>>,
+        clean_before_pull: bool,
     ) -> Result<()> {
         if self.all {
             // we want to pull everything if self.all is true
+
+            if clean_before_pull {
+                // Remove the directory before repopulating
+                Self::clean_ddl_dir(ddl_parent_dir)?;
+            }
+
             T::get_all(
                 schema_name,
                 config_file_path,
@@ -173,6 +206,12 @@ impl Pull {
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
                 // Run a pull on all of the items
+
+                if clean_before_pull {
+                    // Remove the directory before repopulating
+                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                }
+
                 T::get_all(
                     schema_name,
                     config_file_path,
@@ -196,6 +235,15 @@ impl Pull {
         }
         return Ok(());
     }
+
+    fn clean_ddl_dir(dir_path: &str) -> Result<()> {
+        if std::path::Path::new(&dir_path).exists() {
+            println!("\t{}: Directory {}", "Removed".yellow(), dir_path.magenta());
+            std::fs::remove_dir_all(dir_path)?;
+        }
+
+        return Ok(());
+    }
 }
 
 #[async_trait]
@@ -210,6 +258,10 @@ impl Action for Pull {
 
         println!("\nBeginning Pulling:");
 
+        let clean_before_pull = UserConfig::get_global()?
+            .pull_options
+            .clean_ddl_before_pulling;
+
         for schema in approved_schemas {
             println!("\nBeginning {} schema pull:", schema);
 
@@ -221,7 +273,9 @@ impl Action for Pull {
                     "./.tusk/config/schemas/{}/functions_to_include.conf",
                     schema
                 ),
+                &format!("./schemas/{}/functions", schema),
                 &self.functions,
+                clean_before_pull,
             )
             .await?;
 
@@ -236,6 +290,7 @@ impl Action for Pull {
                 connection_string,
                 pg_bin_path,
                 &self.table_ddl,
+                clean_before_pull,
             )
             .await?;
 
@@ -250,6 +305,7 @@ impl Action for Pull {
                 connection_string,
                 pg_bin_path,
                 &self.table_data,
+                clean_before_pull,
             )
             .await?;
 
@@ -261,7 +317,9 @@ impl Action for Pull {
                     "./.tusk/config/schemas/{}/data_types_to_include.conf",
                     schema,
                 ),
+                &format!("./schemas/{}/data_types", schema),
                 &self.data_types,
+                clean_before_pull,
             )
             .await?;
 
@@ -273,6 +331,7 @@ impl Action for Pull {
                 connection_string,
                 pg_bin_path,
                 &self.views,
+                clean_before_pull,
             )
             .await?;
         }
