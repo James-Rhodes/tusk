@@ -8,9 +8,9 @@ use std::pin::Pin;
 
 use crate::{
     actions::pull::DDL,
-    config_file_manager::ddl_config::{
+    config_file_manager::{ddl_config::{
         format_config_file, get_matching_file_contents, get_uncommented_file_contents,
-    },
+    }, user_config::UserConfig},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -171,7 +171,10 @@ pub trait PgDumpPuller: Send + 'static {
         let file_path = format!("{}/{}.sql", ddl_parent_dir, item);
 
         let mut args = vec![db_name_arg.to_owned()];
-        let user_args = Self::pg_dump_arg_gen(&schema, &item);
+        let ddl_args = Self::pg_dump_arg_gen(&schema, &item);
+        args.extend(ddl_args.into_iter());
+
+        let user_args = UserConfig::get_global()?.pull_options.pg_dump_additional_args.clone();
         args.extend(user_args.into_iter());
 
         let command = tokio::process::Command::new(pg_bin_path)
