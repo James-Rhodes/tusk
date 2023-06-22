@@ -182,7 +182,7 @@ pub trait PgDumpPuller: Send + 'static {
         let command_err = std::str::from_utf8(&command.stderr[..]).unwrap_or("");
         if command_err.len() > 0 {
             let command_err = command_err.trim_end().replace("\n", "\n\t\t");
-            println!("\t{}: {}", "Warning".yellow(), command_err);
+            println!("\t{} ({}/{}.sql): {}", "Warning".yellow(), ddl_parent_dir, item, command_err);
             return Ok(());
         }
         let command_out = command.stdout;

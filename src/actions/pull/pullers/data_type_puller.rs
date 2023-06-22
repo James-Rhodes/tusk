@@ -1,6 +1,7 @@
 use crate::actions::pull::pullers::SQLPuller;
 
 const DATA_TYPE_QUERY:&str = "
+        WITH all_type_defs AS (
             WITH all_types AS (
                 SELECT 
                     ns.nspname AS type_schema,
@@ -13,7 +14,7 @@ const DATA_TYPE_QUERY:&str = "
             ),
             type_info AS (
                 SELECT 
-                type_schema,
+                    type_schema,
                     a.attrelid::regclass AS type_name,
                     E'\t' || attname || ' ' || FORMAT_TYPE(a.atttypid, a.atttypmod) AS attr_def
                 FROM pg_type pt
@@ -25,9 +26,9 @@ const DATA_TYPE_QUERY:&str = "
             ),
             custom_type_defs AS (
                 SELECT 
-                    type_name::TEXT AS name, 
+                    SPLIT_PART(type_name::TEXT, '.', 2) AS name, 
                     'CREATE TYPE ' || type_schema || '.'|| type_name || E' AS (\n' ||ARRAY_TO_STRING(ARRAY_AGG(attr_def), E',\n') || E'\n);' AS definition,
-                    'data_types/' || type_name AS file_path
+                    'data_types/' || SPLIT_PART(type_name::TEXT, '.', 2) AS file_path
                 FROM type_info
                 GROUP BY type_name, type_schema
             ),
@@ -88,6 +89,18 @@ const DATA_TYPE_QUERY:&str = "
             SELECT * FROM domain_defs
             UNION 
             SELECT * FROM enum_defs
+        )
+        SELECT * FROM all_type_defs
+        UNION
+        SELECT '', '', 'data_types/' || types.type_name
+        FROM (
+            SELECT * FROM UNNEST($2) type_name
+        ) types
+        WHERE types.type_name NOT IN (
+            SELECT 
+                name
+            FROM all_type_defs
+        )
             ";
 
 pub struct DataTypePuller {}

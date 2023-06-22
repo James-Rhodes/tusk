@@ -7,9 +7,7 @@ use futures::TryStreamExt;
 use sqlx::PgPool;
 
 use crate::{
-    actions::Action,
-    config_file_manager::ddl_config::get_uncommented_file_contents,
-    db_manager
+    actions::Action, config_file_manager::ddl_config::get_uncommented_file_contents, db_manager,
 };
 
 use self::pullers::{
@@ -65,7 +63,10 @@ impl Pull {
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
-            println!("\tPulling {}", file_path.magenta());
+            if ddl.definition.is_empty() {
+                println!("\t{} ({}): {}", "Warning".yellow(), file_path, "Does not exist within the database");
+                continue;
+            }
             let parent_dir =
                 std::path::Path::new(&file_path)
                     .parent()
@@ -81,6 +82,7 @@ impl Pull {
                 std::fs::create_dir_all(parent_dir)?;
             }
 
+            println!("\tPulling {}", file_path.magenta());
             std::fs::write(file_path, ddl.definition)?;
         }
 
@@ -97,7 +99,10 @@ impl Pull {
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
-            println!("\tPulling {}", file_path.magenta());
+            if ddl.definition.is_empty() {
+                println!("\t{} ({}): {}", "Warning".yellow(), file_path, "Does not exist within the database");
+                continue;
+            }
             let parent_dir =
                 std::path::Path::new(&file_path)
                     .parent()
@@ -113,6 +118,7 @@ impl Pull {
                 std::fs::create_dir_all(parent_dir)?;
             }
 
+            println!("\tPulling {}", file_path.magenta());
             std::fs::write(file_path, ddl.definition)?;
         }
 
@@ -159,8 +165,9 @@ impl Pull {
                 config_file_path,
                 ddl_parent_dir,
                 connection_string,
-                pg_bin_path
-            ).await?;
+                pg_bin_path,
+            )
+            .await?;
         }
 
         if let Some(input_items) = input_items {
@@ -171,8 +178,9 @@ impl Pull {
                     config_file_path,
                     ddl_parent_dir,
                     connection_string,
-                    pg_bin_path
-                ).await?;
+                    pg_bin_path,
+                )
+                .await?;
             } else {
                 // Run a pull on the items in input_items
                 T::get(
@@ -182,7 +190,8 @@ impl Pull {
                     connection_string,
                     pg_bin_path,
                     input_items,
-                ).await?;
+                )
+                .await?;
             }
         }
         return Ok(());
@@ -227,7 +236,8 @@ impl Action for Pull {
                 connection_string,
                 pg_bin_path,
                 &self.table_ddl,
-            ).await?;
+            )
+            .await?;
 
             // get the table data
             self.pull_pg_dump::<TableDataPuller>(
@@ -240,7 +250,8 @@ impl Action for Pull {
                 connection_string,
                 pg_bin_path,
                 &self.table_data,
-            ).await?;
+            )
+            .await?;
 
             // get the data_types ddl
             self.pull_sql::<DataTypePuller>(
@@ -262,7 +273,8 @@ impl Action for Pull {
                 connection_string,
                 pg_bin_path,
                 &self.views,
-            ).await?;
+            )
+            .await?;
         }
         return Ok(());
     }
