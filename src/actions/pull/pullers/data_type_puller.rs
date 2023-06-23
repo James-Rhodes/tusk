@@ -26,9 +26,17 @@ const DATA_TYPE_QUERY:&str = "
             ),
             custom_type_defs AS (
                 SELECT 
-                    SPLIT_PART(type_name::TEXT, '.', 2) AS name, 
-                    'CREATE TYPE ' || type_schema || '.'|| type_name || E' AS (\n' ||ARRAY_TO_STRING(ARRAY_AGG(attr_def), E',\n') || E'\n);' AS definition,
-                    'data_types/' || SPLIT_PART(type_name::TEXT, '.', 2) AS file_path
+                    CASE 
+                        WHEN type_name::TEXT ILIKE '%.%' THEN 
+                            SPLIT_PART(type_name::TEXT, '.', 2) 
+                        ELSE type_name::TEXT END 
+                    AS name, 
+                    'CREATE TYPE ' || type_name || E' AS (\n' ||ARRAY_TO_STRING(ARRAY_AGG(attr_def), E',\n') || E'\n);' AS definition,
+                    CASE
+                        WHEN type_name::TEXT ILIKE '%.%' THEN 
+                            'data_types/' || SPLIT_PART(type_name::TEXT, '.', 2)
+                        ELSE 'data_types/' || type_name::TEXT END 
+                    AS file_path
                 FROM type_info
                 GROUP BY type_name, type_schema
             ),
