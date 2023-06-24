@@ -10,7 +10,7 @@ const FUNCTION_DDL_QUERY: &str = "
         FROM pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
         WHERE ns.nspname = $1
         AND p.proname IN (SELECT * FROM UNNEST($2))
-        AND p.prokind = 'f' -- This only supports functions. Not aggregates
+        AND p.prokind IN ('f', 'p') -- This only supports functions and procedures. Not aggregates
         UNION
         SELECT '', '', format('functions/%s', func_name)
         FROM (
