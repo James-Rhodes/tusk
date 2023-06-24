@@ -23,6 +23,7 @@ const DATA_TYPE_QUERY:&str = "
                 JOIN pg_catalog.pg_namespace ns ON pt2.typnamespace = ns.oid
                 JOIN all_types ON all_types.type_name = pt.typname
                 WHERE attnum > 0 AND all_types.type_type = 'c'
+                ORDER BY type_name, attnum
             ),
             custom_type_defs AS (
                 SELECT 
