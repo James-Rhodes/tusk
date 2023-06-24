@@ -244,6 +244,22 @@ impl Pull {
 
         return Ok(());
     }
+
+    async fn create_schema_def(schema: &str) -> Result<()> {
+        
+        let schema_ddl_dir = format!("./schemas/{}/{}.sql", schema, schema);
+        let parent_path = std::path::Path::new(&schema_ddl_dir).parent().expect("There is always a parent to the above path");
+        if !parent_path.exists() {
+            tokio::fs::create_dir_all(&parent_path).await?;
+        }
+
+        let ddl = format!("CREATE SCHEMA IF NOT EXISTS {};\n", schema);
+        tokio::fs::write(&schema_ddl_dir, ddl).await?;
+
+        println!("\tPulling {}", schema_ddl_dir.magenta());
+
+        return Ok(());
+    }
 }
 
 #[async_trait]
@@ -264,6 +280,11 @@ impl Action for Pull {
 
         for schema in approved_schemas {
             println!("\nBeginning {} schema pull:", schema);
+
+            if self.all {
+                // If we are syncing everything then also create the schema ddl file
+                Self::create_schema_def(&schema).await?;
+            }
 
             // get the function ddl
             self.pull_sql::<FunctionPuller>(
