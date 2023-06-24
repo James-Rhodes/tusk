@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
-use crate::actions::{init::Init,sync::Sync, push::Push, unit_test::UnitTest};
-use crate::actions::refresh_inventory::RefreshInventory;
+use crate::actions::{init::Init,pull::Pull, push::Push};
+use crate::actions::fetch::Fetch;
 use crate::actions::Action as CliAction;
 
 #[derive(Debug, Parser)]
@@ -17,28 +17,24 @@ pub enum Action {
     /// and a schema folder.
     Init(Init),
 
-    /// Sync the local database DDL with what is currently on the database.
-    Sync(Sync),
+    /// Pull the DDL from the database
+    Pull(Pull),
 
     /// Push the changes in the local function DDL to the database
     Push(Push),
 
-    /// Creates a list of all schemas, tables, views and functions within the Database defined by the
+    /// Fetches a list of all schemas, tables, views and functions within the Database defined by the
     /// connection in ./.tusk/.env
-    RefreshInventory(RefreshInventory),
-
-    /// Runs unit tests for all functions that have a unit test defined
-    Test(UnitTest),
+    Fetch(Fetch),
 }
 
 impl Action {
     pub async fn execute(&self) -> anyhow::Result<()> {
         match self {
             Self::Init(init) => init.execute(),
-            Self::Sync(sync) => sync.execute(),
+            Self::Pull(pull) => pull.execute(),
             Self::Push(push) => push.execute(),
-            Self::RefreshInventory(ri) => ri.execute(),
-            Action::Test(t) => t.execute(),
+            Self::Fetch(fetch) => fetch.execute(),
         }
         .await?;
 

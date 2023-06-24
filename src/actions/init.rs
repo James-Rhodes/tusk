@@ -5,6 +5,7 @@ use colored::Colorize;
 use crate::actions::Action;
 
 pub const ENV_LOCATION: &str = "./.tusk/.env";
+pub const USER_CONFIG_LOCATION: &str = "./.tusk/user_config.yaml";
 pub const SCHEMA_CONFIG_LOCATION: &str = "./.tusk/config/schemas_to_include.conf";
 
 #[derive(Debug, Args)]
@@ -21,9 +22,32 @@ impl Init {
         if !std::path::Path::new(ENV_LOCATION).exists() {
             std::fs::write(
                 ENV_LOCATION,
-                "DB_USER=****\nDB_PASSWORD=****\nDB_HOST=****\nDB_PORT=****\nDB_NAME=****\n\n#USE_SSH=FALSE\nSSH_REMOTE_IP_ADDRESS=****\nSSH_USERNAME=****\nSSH_LOCAL_PORT=****\nSSH_REMOTE_PORT=****\n\n#PG_BIN_PATH=****",
+                "DB_USER=****\nDB_PASSWORD=****\nDB_HOST=****\nDB_PORT=****\nDB_NAME=****\n\n#USE_SSH=FALSE\nSSH_HOST=****\nSSH_USER=****\nSSH_LOCAL_BIND_PORT=****\n\n#PG_BIN_PATH=****",
             )?;
             println!("\tCreated file: {}", ENV_LOCATION.bold());
+        }
+
+        // Create the user_config file for user config info
+        if !std::path::Path::new(USER_CONFIG_LOCATION).exists() {
+            std::fs::write(
+                USER_CONFIG_LOCATION,
+                r#"
+fetch_options:
+    new_items_commented:
+      schemas: true
+      functions: false
+      table_ddl: false
+      table_data: true
+      views: false
+      data_types: false
+    delete_items_from_config: true
+
+pull_options:
+    clean_ddl_before_pulling: true
+    pg_dump_additional_args:
+                "#,
+            )?;
+            println!("\tCreated file: {}", USER_CONFIG_LOCATION.bold());
         }
 
         // Create the file that will contain which schemas to include

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use anyhow::Result;
+use anyhow::{Result, Context};
 use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
@@ -8,7 +8,9 @@ use sqlx::postgres::PgRow;
 use sqlx::{PgPool, Row};
 
 use crate::actions::{init::SCHEMA_CONFIG_LOCATION, Action};
-use crate::config_file_manager::get_uncommented_file_contents;
+use crate::config_file_manager::ddl_config::get_uncommented_file_contents;
+
+use crate::config_file_manager::user_config::UserConfig;
 use crate::{config_file_manager, db_manager};
 
 enum SchemaListStatus {
@@ -17,10 +19,10 @@ enum SchemaListStatus {
 }
 
 #[derive(Debug, Args)]
-pub struct RefreshInventory {}
+pub struct Fetch {}
 
-impl RefreshInventory {
-    async fn refresh_list(
+impl Fetch {
+    async fn fetch_list(
         &self,
         pool: &PgPool,
         query: &str,
@@ -28,7 +30,8 @@ impl RefreshInventory {
         file_loc: &str,
         list_type: &str,
         add_new_as_commented: bool,
-    ) -> Result<config_file_manager::ChangeStatus> {
+        delete_items_from_config: bool,
+    ) -> Result<config_file_manager::ddl_config::ChangeStatus> {
         let db_list: HashSet<String> = sqlx::query(query)
             .map(|row: PgRow| {
                 let name: String = row.try_get(column_name).expect(&format!(
@@ -41,10 +44,11 @@ impl RefreshInventory {
             .into_iter()
             .collect();
 
-        let change_status = config_file_manager::update_file_contents_from_db(
+        let change_status = config_file_manager::ddl_config::update_file_contents_from_db(
             file_loc,
             db_list,
             add_new_as_commented,
+            delete_items_from_config,
         )?;
 
         let added = match change_status.added {
@@ -57,16 +61,21 @@ impl RefreshInventory {
             _ => change_status.removed.to_string().bold().red(),
         };
         println!(
-            "{} config file refreshed! Added: {added:<4}, Removed: {removed:<4}",
+            "{} config file fetched! Added: {added:<4}, Removed: {removed:<4}",
             list_type
         );
 
         return Ok(change_status);
     }
 
-    async fn refresh_schema_list(&self, pool: &PgPool) -> Result<SchemaListStatus> {
+    async fn fetch_schema_list(&self, pool: &PgPool) -> Result<SchemaListStatus> {
+
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("schemas").context("new_items_commented must contain a field schemas")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
         let change_status = self
-            .refresh_list(
+            .fetch_list(
                 pool,
                 "
                     SELECT nspname schema_name
@@ -77,7 +86,8 @@ impl RefreshInventory {
                 "schema_name",
                 SCHEMA_CONFIG_LOCATION,
                 "\nSchema",
-                true,
+                *new_items_commented,
+                delete_items_from_config
             )
             .await?;
 
@@ -89,7 +99,7 @@ impl RefreshInventory {
         return Ok(SchemaListStatus::AlreadyLoaded);
     }
 
-    async fn refresh_function_lists(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_function_lists(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -100,7 +110,11 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("functions").context("new_items_commented must contain a field functions")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -115,14 +129,15 @@ impl RefreshInventory {
             "function_name",
             &config_path,
             &format!("\t{}: Functions", schema.magenta()),
-            false,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
         return Ok(());
     }
 
-    async fn refresh_table_ddl_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_table_ddl_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -133,7 +148,11 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("table_ddl").context("new_items_commented must contain a field table_ddl")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -147,14 +166,15 @@ impl RefreshInventory {
             "table_name",
             &config_path,
             &format!("\t{}: Table DDL", schema.magenta()),
-            false,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
         return Ok(());
     }
 
-    async fn refresh_table_data_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_table_data_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -165,7 +185,11 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("table_data").context("new_items_commented must contain a field table_data")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -179,13 +203,14 @@ impl RefreshInventory {
             "table_name",
             &config_path,
             &format!("\t{}: Table data", schema.magenta()),
-            true,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
         return Ok(());
     }
-    async fn refresh_data_types_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_data_types_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -196,7 +221,11 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("data_types").context("new_items_commented must contain a field data_types")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
+        self.fetch_list(
                 pool,
                 &format!(
                     "
@@ -213,14 +242,15 @@ impl RefreshInventory {
                 "data_type",
                 &config_path,
                 &format!("\t{}: Data type", schema.magenta()),
-                false,
+                *new_items_commented,
+                delete_items_from_config
             )
             .await?;
 
         return Ok(());
     }
 
-    async fn refresh_views_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
+    async fn fetch_views_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
@@ -231,7 +261,11 @@ impl RefreshInventory {
             std::fs::write(&config_path, "")?;
         }
 
-        self.refresh_list(
+        let config = UserConfig::get_global()?;
+        let new_items_commented = config.fetch_options.new_items_commented.get("views").context("new_items_commented must contain a field views")?;
+        let delete_items_from_config = config.fetch_options.delete_items_from_config;
+
+        self.fetch_list(
             pool,
             &format!(
                 "
@@ -247,7 +281,8 @@ impl RefreshInventory {
             "views",
             &config_path,
             &format!("\t{}: Views", schema.magenta()),
-            false,
+            *new_items_commented,
+            delete_items_from_config
         )
         .await?;
 
@@ -256,15 +291,15 @@ impl RefreshInventory {
 }
 
 #[async_trait]
-impl Action for RefreshInventory {
+impl Action for Fetch {
     async fn execute(&self) -> Result<()> {
-        println!("\nBeginning Inventory Refresh:");
+        println!("\nBeginning Inventory Fetch:");
 
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
 
-        if let SchemaListStatus::FirstLoad = self.refresh_schema_list(pool).await? {
-            println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running refresh-inventory again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
+        if let SchemaListStatus::FirstLoad = self.fetch_schema_list(pool).await? {
+            println!("\n\nThe list of schemas has been initialised at {}\n\nPlease comment out using // any schemas you do not wish to back up before running fetch again. This will create the lists of functions and tables for you to configure", (std::env::current_dir().unwrap().to_str().unwrap().to_owned() + &SCHEMA_CONFIG_LOCATION[1..]).bold());
 
             return Ok(());
         }
@@ -272,12 +307,12 @@ impl Action for RefreshInventory {
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
         for schema in approved_schemas {
-            println!("\nBeginning {} schema refresh:", schema);
-            self.refresh_function_lists(pool, &schema).await?;
-            self.refresh_table_ddl_list(pool, &schema).await?;
-            self.refresh_table_data_list(pool, &schema).await?;
-            self.refresh_data_types_list(pool, &schema).await?;
-            self.refresh_views_list(pool, &schema).await?;
+            println!("\nBeginning {} schema fetch:", schema);
+            self.fetch_function_lists(pool, &schema).await?;
+            self.fetch_table_ddl_list(pool, &schema).await?;
+            self.fetch_table_data_list(pool, &schema).await?;
+            self.fetch_data_types_list(pool, &schema).await?;
+            self.fetch_views_list(pool, &schema).await?;
             println!();
         }
 

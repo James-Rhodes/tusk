@@ -1,6 +1,7 @@
-use crate::actions::sync::syncers::SQLSyncer;
+use crate::actions::pull::pullers::SQLPuller;
 
 const DATA_TYPE_QUERY:&str = "
+        WITH all_type_defs AS (
             WITH all_types AS (
                 SELECT 
                     ns.nspname AS type_schema,
@@ -13,7 +14,7 @@ const DATA_TYPE_QUERY:&str = "
             ),
             type_info AS (
                 SELECT 
-                type_schema,
+                    type_schema,
                     a.attrelid::regclass AS type_name,
                     E'\t' || attname || ' ' || FORMAT_TYPE(a.atttypid, a.atttypmod) AS attr_def
                 FROM pg_type pt
@@ -22,12 +23,21 @@ const DATA_TYPE_QUERY:&str = "
                 JOIN pg_catalog.pg_namespace ns ON pt2.typnamespace = ns.oid
                 JOIN all_types ON all_types.type_name = pt.typname
                 WHERE attnum > 0 AND all_types.type_type = 'c'
+                ORDER BY type_name, attnum
             ),
             custom_type_defs AS (
                 SELECT 
-                    type_name::TEXT AS name, 
-                    'CREATE TYPE ' || type_schema || '.'|| type_name || E' AS (\n' ||ARRAY_TO_STRING(ARRAY_AGG(attr_def), E',\n') || E'\n);' AS definition,
-                    'data_types/' || type_name AS file_path
+                    CASE 
+                        WHEN type_name::TEXT ILIKE '%.%' THEN 
+                            SPLIT_PART(type_name::TEXT, '.', 2) 
+                        ELSE type_name::TEXT END 
+                    AS name, 
+                    'CREATE TYPE ' || type_name || E' AS (\n' ||ARRAY_TO_STRING(ARRAY_AGG(attr_def), E',\n') || E'\n);' AS definition,
+                    CASE
+                        WHEN type_name::TEXT ILIKE '%.%' THEN 
+                            'data_types/' || SPLIT_PART(type_name::TEXT, '.', 2)
+                        ELSE 'data_types/' || type_name::TEXT END 
+                    AS file_path
                 FROM type_info
                 GROUP BY type_name, type_schema
             ),
@@ -88,11 +98,23 @@ const DATA_TYPE_QUERY:&str = "
             SELECT * FROM domain_defs
             UNION 
             SELECT * FROM enum_defs
+        )
+        SELECT * FROM all_type_defs
+        UNION
+        SELECT '', '', 'data_types/' || types.type_name
+        FROM (
+            SELECT * FROM UNNEST($2) type_name
+        ) types
+        WHERE types.type_name NOT IN (
+            SELECT 
+                name
+            FROM all_type_defs
+        )
             ";
 
-pub struct DataTypeSyncer {}
+pub struct DataTypePuller {}
 
-impl SQLSyncer for DataTypeSyncer {
+impl SQLPuller for DataTypePuller {
     fn get_ddl_query() -> &'static str {
         return DATA_TYPE_QUERY;
     }

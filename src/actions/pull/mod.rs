@@ -1,4 +1,4 @@
-pub mod syncers;
+pub mod pullers;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Args;
@@ -8,13 +8,13 @@ use sqlx::PgPool;
 
 use crate::{
     actions::Action,
-    config_file_manager::get_uncommented_file_contents,
-    db_manager
+    config_file_manager::{ddl_config::get_uncommented_file_contents, user_config::UserConfig},
+    db_manager,
 };
 
-use self::syncers::{
-    data_type_syncer::DataTypeSyncer, function_syncer::FunctionSyncer,
-    table_data_syncer::TableDataSyncer, table_ddl_syncer::TableDDLSyncer, view_syncer::ViewSyncer,
+use self::pullers::{
+    data_type_puller::DataTypePuller, function_puller::FunctionPuller,
+    table_data_puller::TableDataPuller, table_ddl_puller::TableDDLPuller, view_puller::ViewPuller,
 };
 
 use super::init::SCHEMA_CONFIG_LOCATION;
@@ -27,35 +27,35 @@ pub struct DDL {
 }
 
 #[derive(Debug, Args)]
-pub struct Sync {
-    /// Sync the specified function or functions that start with the input pattern.
+pub struct Pull {
+    /// Pull the specified function or functions that start with the input pattern.
     #[arg(short,long, num_args(0..))]
     functions: Option<Vec<String>>,
 
-    /// Sync the specified table ddl that starts with the input pattern.
+    /// Pull the specified table ddl that starts with the input pattern.
     #[arg(short,long, num_args(0..))]
     table_ddl: Option<Vec<String>>,
 
-    /// Sync the specified table data that starts with the input pattern.
+    /// Pull the specified table data that starts with the input pattern.
     #[arg(short='T',long, num_args(0..))]
     table_data: Option<Vec<String>>,
 
-    /// Sync the specified data types (enums, domains or composite types) that starts with the input pattern.
+    /// Pull the specified data types (enums, domains or composite types) that starts with the input pattern.
     #[arg(short,long, num_args(0..))]
     data_types: Option<Vec<String>>,
 
-    /// Sync the specified views (materialized views and normal views) that starts with the input pattern.     
+    /// Pull the specified views (materialized views and normal views) that starts with the input pattern.     
     #[arg(short,long, num_args(0..))]
     views: Option<Vec<String>>,
 
-    /// Sync all of the DDL within the schemas that are uncommented in the schema config file found
+    /// Pull all of the DDL within the schemas that are uncommented in the schema config file found
     /// at ./.tusk/config/schemas_to_include.conf
     #[arg(short, long)]
     all: bool,
 }
 
-impl Sync {
-    async fn sync_all<T: syncers::SQLSyncer>(
+impl Pull {
+    async fn pull_all<T: pullers::SQLPuller>(
         pool: &PgPool,
         schema_name: &str,
         config_file_path: &str,
@@ -65,7 +65,15 @@ impl Sync {
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
-            println!("\tSyncing {}", file_path.magenta());
+            if ddl.definition.is_empty() {
+                println!(
+                    "\t{} ({}): {}",
+                    "Warning".yellow(),
+                    file_path,
+                    "Does not exist within the database"
+                );
+                continue;
+            }
             let parent_dir =
                 std::path::Path::new(&file_path)
                     .parent()
@@ -81,12 +89,13 @@ impl Sync {
                 std::fs::create_dir_all(parent_dir)?;
             }
 
+            println!("\tPulling {}", file_path.magenta());
             std::fs::write(file_path, ddl.definition)?;
         }
 
         return Ok(());
     }
-    async fn sync_some<T: syncers::SQLSyncer>(
+    async fn pull_some<T: pullers::SQLPuller>(
         pool: &PgPool,
         schema_name: &str,
         config_file_path: &str,
@@ -97,7 +106,15 @@ impl Sync {
         while let Some(ddl) = all_ddl.try_next().await? {
             // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
-            println!("\tSyncing {}", file_path.magenta());
+            if ddl.definition.is_empty() {
+                println!(
+                    "\t{} ({}): {}",
+                    "Warning".yellow(),
+                    file_path,
+                    "Does not exist within the database"
+                );
+                continue;
+            }
             let parent_dir =
                 std::path::Path::new(&file_path)
                     .parent()
@@ -113,37 +130,52 @@ impl Sync {
                 std::fs::create_dir_all(parent_dir)?;
             }
 
+            println!("\tPulling {}", file_path.magenta());
             std::fs::write(file_path, ddl.definition)?;
         }
 
         return Ok(());
     }
 
-    async fn sync_sql<T: syncers::SQLSyncer>(
+    async fn pull_sql<T: pullers::SQLPuller>(
         &self,
         pool: &PgPool,
         schema_name: &str,
         config_file_path: &str,
+        ddl_parent_dir: &str,
         input_items: &Option<Vec<String>>,
+        clean_before_pull: bool,
     ) -> Result<()> {
         if self.all {
-            // we want to sync everything if self.all is true
-            Self::sync_all::<T>(pool, schema_name, config_file_path).await?;
+            // we want to pull everything if self.all is true
+
+            if clean_before_pull {
+                // Remove the directory before repopulating
+                Self::clean_ddl_dir(ddl_parent_dir)?;
+            }
+
+            Self::pull_all::<T>(pool, schema_name, config_file_path).await?;
         }
 
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
-                // Run a sync on all of the items
-                Self::sync_all::<T>(pool, schema_name, config_file_path).await?;
+                // Run a pull on all of the items
+
+                if clean_before_pull {
+                    // Remove the directory before repopulating
+                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                }
+
+                Self::pull_all::<T>(pool, schema_name, config_file_path).await?;
             } else {
-                // Run a sync on the items in input_items
-                Self::sync_some::<T>(pool, schema_name, config_file_path, input_items).await?;
+                // Run a pull on the items in input_items
+                Self::pull_some::<T>(pool, schema_name, config_file_path, input_items).await?;
             }
         }
         return Ok(());
     }
 
-    async fn sync_pg_dump<T: syncers::PgDumpSyncer>(
+    async fn pull_pg_dump<T: pullers::PgDumpPuller>(
         &self,
         schema_name: &str,
         config_file_path: &str,
@@ -151,30 +183,45 @@ impl Sync {
         connection_string: &str,
         pg_bin_path: &str,
         input_items: &Option<Vec<String>>,
+        clean_before_pull: bool,
     ) -> Result<()> {
         if self.all {
-            // we want to sync everything if self.all is true
+            // we want to pull everything if self.all is true
+
+            if clean_before_pull {
+                // Remove the directory before repopulating
+                Self::clean_ddl_dir(ddl_parent_dir)?;
+            }
+
             T::get_all(
                 schema_name,
                 config_file_path,
                 ddl_parent_dir,
                 connection_string,
-                pg_bin_path
-            ).await?;
+                pg_bin_path,
+            )
+            .await?;
         }
 
         if let Some(input_items) = input_items {
             if input_items.len() == 0 {
-                // Run a sync on all of the items
+                // Run a pull on all of the items
+
+                if clean_before_pull {
+                    // Remove the directory before repopulating
+                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                }
+
                 T::get_all(
                     schema_name,
                     config_file_path,
                     ddl_parent_dir,
                     connection_string,
-                    pg_bin_path
-                ).await?;
+                    pg_bin_path,
+                )
+                .await?;
             } else {
-                // Run a sync on the items in input_items
+                // Run a pull on the items in input_items
                 T::get(
                     schema_name,
                     config_file_path,
@@ -182,15 +229,41 @@ impl Sync {
                     connection_string,
                     pg_bin_path,
                     input_items,
-                ).await?;
+                )
+                .await?;
             }
         }
+        return Ok(());
+    }
+
+    fn clean_ddl_dir(dir_path: &str) -> Result<()> {
+        if std::path::Path::new(&dir_path).exists() {
+            println!("\t{}: Directory {}", "Removed".yellow(), dir_path.magenta());
+            std::fs::remove_dir_all(dir_path)?;
+        }
+
+        return Ok(());
+    }
+
+    async fn create_schema_def(schema: &str) -> Result<()> {
+        
+        let schema_ddl_dir = format!("./schemas/{}/{}.sql", schema, schema);
+        let parent_path = std::path::Path::new(&schema_ddl_dir).parent().expect("There is always a parent to the above path");
+        if !parent_path.exists() {
+            tokio::fs::create_dir_all(&parent_path).await?;
+        }
+
+        let ddl = format!("CREATE SCHEMA IF NOT EXISTS {};\n", schema);
+        tokio::fs::write(&schema_ddl_dir, ddl).await?;
+
+        println!("\tPulling {}", schema_ddl_dir.magenta());
+
         return Ok(());
     }
 }
 
 #[async_trait]
-impl Action for Sync {
+impl Action for Pull {
     async fn execute(&self) -> anyhow::Result<()> {
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
@@ -199,25 +272,36 @@ impl Action for Sync {
         let connection_string = connection.get_connection_string();
         let pg_bin_path = connection.get_pg_bin_path();
 
-        println!("\nBeginning Syncing:");
+        println!("\nBeginning Pulling:");
+
+        let clean_before_pull = UserConfig::get_global()?
+            .pull_options
+            .clean_ddl_before_pulling;
 
         for schema in approved_schemas {
-            println!("\nBeginning {} schema sync:", schema);
+            println!("\nBeginning {} schema pull:", schema);
+
+            if self.all {
+                // If we are syncing everything then also create the schema ddl file
+                Self::create_schema_def(&schema).await?;
+            }
 
             // get the function ddl
-            self.sync_sql::<FunctionSyncer>(
+            self.pull_sql::<FunctionPuller>(
                 pool,
                 &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/functions_to_include.conf",
                     schema
                 ),
+                &format!("./schemas/{}/functions", schema),
                 &self.functions,
+                clean_before_pull,
             )
             .await?;
 
             // get the table ddl
-            self.sync_pg_dump::<TableDDLSyncer>(
+            self.pull_pg_dump::<TableDDLPuller>(
                 &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/table_ddl_to_include.conf",
@@ -227,10 +311,12 @@ impl Action for Sync {
                 connection_string,
                 pg_bin_path,
                 &self.table_ddl,
-            ).await?;
+                clean_before_pull,
+            )
+            .await?;
 
             // get the table data
-            self.sync_pg_dump::<TableDataSyncer>(
+            self.pull_pg_dump::<TableDataPuller>(
                 &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/table_data_to_include.conf",
@@ -240,29 +326,35 @@ impl Action for Sync {
                 connection_string,
                 pg_bin_path,
                 &self.table_data,
-            ).await?;
+                clean_before_pull,
+            )
+            .await?;
 
             // get the data_types ddl
-            self.sync_sql::<DataTypeSyncer>(
+            self.pull_sql::<DataTypePuller>(
                 pool,
                 &schema,
                 &format!(
                     "./.tusk/config/schemas/{}/data_types_to_include.conf",
                     schema,
                 ),
+                &format!("./schemas/{}/data_types", schema),
                 &self.data_types,
+                clean_before_pull,
             )
             .await?;
 
             // get the view ddl
-            self.sync_pg_dump::<ViewSyncer>(
+            self.pull_pg_dump::<ViewPuller>(
                 &schema,
                 &format!("./.tusk/config/schemas/{}/views_to_include.conf", schema,),
                 &format!("./schemas/{}/views", schema),
                 connection_string,
                 pg_bin_path,
                 &self.views,
-            ).await?;
+                clean_before_pull,
+            )
+            .await?;
         }
         return Ok(());
     }

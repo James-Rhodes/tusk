@@ -9,7 +9,7 @@ use walkdir;
 
 use crate::{
     actions::init::SCHEMA_CONFIG_LOCATION,
-    config_file_manager::{
+    config_file_manager::ddl_config::{
         get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
     },
     db_manager,
@@ -160,7 +160,7 @@ impl Action for Push {
                 .collect::<Vec<String>>();
 
             if self.all {
-                // If all is specified then just sync all the local functions that aren't commented
+                // If all is specified then just pull all the local functions that aren't commented
                 if !local_funcs.is_empty() {
                     println!("\nBeginning {} schema push:", schema);
                 }
