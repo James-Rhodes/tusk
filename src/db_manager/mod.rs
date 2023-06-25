@@ -1,3 +1,5 @@
+pub mod error_handling;
+
 use anyhow::{Context, Result};
 use dotenvy;
 use sqlx::{postgres::PgPoolOptions, PgPool};
