@@ -1,24 +1,36 @@
 use std::collections::HashMap;
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 // gets the unit tests from the config file
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-struct TestSideEffectConfig {
+pub struct TestSideEffectConfig {
     table_query: String,
     expected_query_results: Vec<HashMap<String, String>>,
 }
 //
 // The definition of a test from the json files
 #[derive(Debug, Serialize, Deserialize)]
-struct TestConfig {
-    test_query: String,
-    expected_output: Option<Vec<HashMap<String, String>>>,
-    expected_side_effect: Option<TestSideEffectConfig>,
+pub struct TestConfig {
+    pub name: String,
+    pub query: String,
+    pub expected_output: Option<Vec<HashMap<String, String>>>,
+    pub expected_side_effect: Option<TestSideEffectConfig>,
 }
 
 // Manage the config files such as getting tests etc
-struct TestConfigManager {}
+// struct TestConfigManager {}
+
+// impl TestConfigManager {
+async fn get_test_config(file_path: &str) -> Result<Vec<TestConfig>> {
+    let yaml_text = tokio::fs::read_to_string(file_path).await?;
+
+    let test_config: Vec<TestConfig> = serde_yaml::from_str(&yaml_text)?;
+
+    return Ok(test_config);
+}
+// }
 
 #[cfg(test)]
 mod tests {
@@ -29,42 +41,28 @@ mod tests {
         #[test]
         fn deserialize_works() {
             let example_json = r#"
-            [
-                {
-
-                    "test_query": "SOME QUERY",
-                    "expected_output": [
-                        {
-                            "col1": "1",
-                            "col2": "2"
-                        },
-                        {
-                            "col1": "3",
-                            "col2": "4"
-                        }
-                    ],
-                    "expected_side_effect": {
-                        "table_query": "SOME OTHER QUERY",
-                        "expected_query_results": [
-                            {
-                                "col1": "1",
-                                "col2": "2"
-                            },
-                            {
-                                "col1": "3",
-                                "col2": "4"
-                            }
-                        ]
-                    }
-                }
-            ]
+- name: The test name
+  query: SOME QUERY
+  expected_output:
+  - col1: '1'
+    col2: '2'
+  - col1: '3'
+    col2: '4'
+  expected_side_effect:
+    table_query: SOME OTHER QUERY
+    expected_query_results:
+    - col1: '1'
+      col2: '2'
+    - col1: '3'
+      col2: '4'
             "#;
 
-            let config: Vec<TestConfig> = serde_json::from_str(example_json).unwrap();
+            let config: Vec<TestConfig> = serde_yaml::from_str(example_json).unwrap();
 
             assert!(config.len() == 1);
 
-            assert!(config[0].test_query == "SOME QUERY");
+            assert!(config[0].name == "The test name");
+            assert!(config[0].query == "SOME QUERY");
             assert!(
                 config[0].expected_output
                     == Some(vec![
