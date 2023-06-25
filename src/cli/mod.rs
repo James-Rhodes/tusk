@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use crate::actions::{init::Init,pull::Pull, push::Push};
-use crate::actions::fetch::Fetch;
+use crate::actions::{init::Init,pull::Pull, push::Push, fetch::Fetch, unit_test::UnitTest};
 use crate::actions::Action as CliAction;
 
 #[derive(Debug, Parser)]
@@ -26,6 +25,11 @@ pub enum Action {
     /// Fetches a list of all schemas, tables, views and functions within the Database defined by the
     /// connection in ./.tusk/.env
     Fetch(Fetch),
+
+    /// Runs unit tests of each of the defined functions or procedures defined in the unit
+    /// test .yaml files
+    UnitTest(UnitTest),
+
 }
 
 impl Action {
@@ -35,6 +39,7 @@ impl Action {
             Self::Pull(pull) => pull.execute(),
             Self::Push(push) => push.execute(),
             Self::Fetch(fetch) => fetch.execute(),
+            Self::UnitTest(unit_test) => unit_test.execute(),
         }
         .await?;
 
