@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     actions::unit_test::test_config_manager::TestConfig,
-    db_manager::{error_handling::get_db_error, DbConnection},
+    db_manager::error_handling::get_db_error,
 };
 use anyhow::{bail, Result};
 use futures::TryStreamExt;
@@ -132,6 +132,7 @@ impl TestRunner {
 mod tests {
 
     use super::*;
+    use crate::db_manager::DbConnection;
 
     #[test]
     fn running_tests_without_side_effects_works() {
