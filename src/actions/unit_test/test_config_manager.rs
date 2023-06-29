@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 // gets the unit tests from the config file
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TestSideEffectConfig {
-    table_query: String,
-    expected_query_results: Vec<HashMap<String, String>>,
+    pub table_query: String,
+    pub expected_query_results: Vec<HashMap<String, String>>,
 }
 //
 // The definition of a test from the json files
