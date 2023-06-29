@@ -23,7 +23,7 @@ pub struct TestConfig {
 // struct TestConfigManager {}
 
 // impl TestConfigManager {
-async fn get_test_config(file_path: &str) -> Result<Vec<TestConfig>> {
+pub async fn get_test_config(file_path: &str) -> Result<Vec<TestConfig>> {
     let yaml_text = tokio::fs::read_to_string(file_path).await?;
 
     let test_config: Vec<TestConfig> = serde_yaml::from_str(&yaml_text)?;

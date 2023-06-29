@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    actions::unit_test::test_config_manager::TestConfig,
-    db_manager::error_handling::get_db_error,
+    actions::unit_test::test_config_manager::{TestConfig, get_test_config},
+    db_manager::error_handling::get_db_error
 };
 use anyhow::{bail, Result};
 use futures::TryStreamExt;
@@ -24,6 +24,10 @@ pub struct TestRunner {
 impl TestRunner {
     fn new(tests: Vec<TestConfig>) -> Self {
         return Self { tests };
+    }
+
+    async fn from_file(file_path: &str) -> Result<Self> {
+        return Ok(Self::new(get_test_config(file_path).await?));
     }
 
     async fn run_tests(&self, pool: &PgPool) -> Result<Vec<TestResult>> {
