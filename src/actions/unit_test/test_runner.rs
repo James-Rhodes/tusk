@@ -27,15 +27,15 @@ pub struct TestRunner {
 }
 
 impl TestRunner {
-    fn new(tests: Vec<TestConfig>) -> Self {
+    pub fn new(tests: Vec<TestConfig>) -> Self {
         return Self { tests };
     }
 
-    async fn from_file(file_path: &str) -> Result<Self> {
+    pub async fn from_file(file_path: &str) -> Result<Self> {
         return Ok(Self::new(get_test_config(file_path).await?));
     }
 
-    async fn run_tests(&self, pool: &PgPool) -> Result<Vec<TestResult>> {
+    pub async fn run_tests(&self, pool: &PgPool) -> Result<Vec<TestResult>> {
         if self.tests.is_empty() {
             // return bail!("There must be at least one test defined per unit test yaml file");
             return Err(anyhow::anyhow!(
