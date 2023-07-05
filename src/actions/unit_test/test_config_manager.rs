@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 // gets the unit tests from the config file
@@ -26,7 +26,9 @@ pub struct TestConfig {
 pub async fn get_test_config(file_path: &str) -> Result<Vec<TestConfig>> {
     let yaml_text = tokio::fs::read_to_string(file_path).await?;
 
-    let test_config: Vec<TestConfig> = serde_yaml::from_str(&yaml_text)?;
+    let test_config: Vec<TestConfig> = serde_yaml::from_str(&yaml_text).context(
+        format!("The given yaml file '{}' could not be parsed into a valid unit test definition", file_path),
+    )?;
 
     return Ok(test_config);
 }
