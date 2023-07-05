@@ -34,7 +34,7 @@ pub struct Push {
 impl Push {
     // Get all locally defined functions within the directory schema_dir
     fn get_local_funcs(&self, schema: &str) -> Result<(Vec<String>, HashMap<String, Vec<String>>)> {
-        let mut func_names = vec![];
+
         let mut func_paths: HashMap<String, Vec<String>> = HashMap::new();
 
         let dir_walker =
@@ -61,14 +61,12 @@ impl Push {
                     .expect("File path should be convertible into a str")
                     .to_owned();
 
-                func_names.push(func_name.clone());
-
                 let func_path_list = func_paths.entry(func_name).or_insert(vec![]);
                 func_path_list.push(func_path);
             }
         }
 
-        return Ok((func_names, func_paths));
+        return Ok((func_paths.keys().map(|val| val.to_string()).collect(), func_paths));
     }
 
     async fn push_func(
