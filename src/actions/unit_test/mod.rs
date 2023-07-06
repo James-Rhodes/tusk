@@ -6,13 +6,14 @@ use std::{collections::HashMap, path::Path};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use clap::Args;
+use colored::Colorize;
 use sqlx::PgPool;
-use walkdir::WalkDir;
-// use colored::Colorize;
 
 use crate::{
     actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::test_runner::TestRunner, Action},
-    config_file_manager::ddl_config::{get_matching_file_contents, get_uncommented_file_contents, get_commented_file_contents},
+    config_file_manager::ddl_config::{
+        get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
+    },
     db_manager,
 };
 
@@ -40,7 +41,6 @@ pub struct UnitTest {
 }
 
 impl UnitTest {
-
     fn get_func_name(file_path: &Path) -> Result<String> {
         let mut dir = file_path.parent().context(format!(
             "The file directory {:?} should have a parent",
@@ -86,7 +86,6 @@ impl UnitTest {
     fn get_func_unit_test_paths(
         schema: &str,
     ) -> Result<(Vec<String>, HashMap<String, Vec<String>>)> {
-
         let mut unit_test_paths: HashMap<String, Vec<String>> = HashMap::new();
 
         let dir_walker =
@@ -103,7 +102,6 @@ impl UnitTest {
             let file_path = dir.path();
 
             if file_name.ends_with(".yaml") || file_name.ends_with(".yml") {
-
                 let func_name = Self::get_func_name(file_path)?;
 
                 let unit_test_path = file_path
@@ -111,22 +109,18 @@ impl UnitTest {
                     .context("File path should be convertible into a str")?
                     .to_owned();
 
-
                 let unit_test_path_list = unit_test_paths.entry(func_name).or_insert(vec![]);
                 unit_test_path_list.push(unit_test_path);
             }
         }
 
-        return Ok((unit_test_paths.keys().map(|val| val.to_string()).collect(), unit_test_paths));
+        return Ok((
+            unit_test_paths.keys().map(|val| val.to_string()).collect(),
+            unit_test_paths,
+        ));
     }
 
-    async fn run_all_unit_tests(pool: &PgPool, schema: &str) -> Result<Vec<TestStats>> {
-        todo!()
-    }
-    async fn run_function_unit_test(
-        pool: &PgPool,
-        file_paths: &Vec<String>
-    ) -> Result<TestStats> {
+    async fn run_function_unit_test(pool: &PgPool, file_paths: &Vec<String>) -> Result<TestStats> {
         // Get the yaml file paths for functions
 
         let mut test_stats = TestStats::default();
@@ -137,15 +131,25 @@ impl UnitTest {
                 // print the messages about pass or fail. add to the tally for passed vs failed
                 match test_result {
                     test_runner::TestResult::Passed { test_name } => {
-                        // TODO: Make this print all perty
-                        println!("Test PASSED");
+                        println!(
+                            "\t{}::{} - {}",
+                            fp.magenta(),
+                            test_name.bold(),
+                            "Passed".green()
+                        );
                         test_stats.num_passed += 1;
                     }
                     test_runner::TestResult::Failed {
                         test_name,
                         error_message,
                     } => {
-                        println!("TEST FAILED");
+                        println!(
+                            "\t{}::{} - {}",
+                            fp.magenta(),
+                            test_name.bold(),
+                            "Failed".red()
+                        );
+                        println!("\t\t{}", error_message.replace("\n", "\n\t\t"));
                         test_stats.num_failed += 1;
                     }
                 }
@@ -153,11 +157,8 @@ impl UnitTest {
         }
         return Ok(test_stats);
     }
-}
 
-#[async_trait]
-impl Action for UnitTest {
-    async fn execute(&self) -> anyhow::Result<()> {
+    async fn run_unit_tests(functions: &Vec<String>, run_all: bool) -> Result<()> {
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
 
@@ -178,7 +179,7 @@ impl Action for UnitTest {
                 .filter(|item| !commented_funcs.contains(&item))
                 .collect::<Vec<String>>();
 
-            if self.all {
+            if run_all {
                 // If all is specified then just run all the local functions unit tests that aren't commented
                 if !funcs.is_empty() {
                     println!("\nBeginning {} schema unit tests:", schema);
@@ -195,7 +196,7 @@ impl Action for UnitTest {
             } else {
                 // Get the functions that match the patterns passed in
                 let matching_local_funcs =
-                    get_matching_file_contents(&funcs, &self.functions, Some(&schema))?;
+                    get_matching_file_contents(&funcs, &functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
                     println!("\nBeginning {} schema push:", schema);
@@ -212,7 +213,13 @@ impl Action for UnitTest {
                 }
             }
         }
-
         return Ok(());
+    }
+}
+
+#[async_trait]
+impl Action for UnitTest {
+    async fn execute(&self) -> anyhow::Result<()> {
+        return Self::run_unit_tests(&self.functions, self.all).await
     }
 }
