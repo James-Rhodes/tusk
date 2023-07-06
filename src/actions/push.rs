@@ -79,14 +79,14 @@ impl Push {
             let file_contents = std::fs::read_to_string(func_path)?;
             match sqlx::query(&file_contents).execute(pool).await {
                 Ok(_) => println!(
-                    "\t-{}: {} {}",
+                    "\t{}: {} {}",
                     func_name.bold().magenta(),
                     func_path,
                     "Success".green()
                 ),
                 Err(e) => {
                     println!(
-                        "\t-{}: {} {}",
+                        "\t{}: {} {}",
                         func_name.bold().magenta(),
                         func_path,
                         "Failed".red()
