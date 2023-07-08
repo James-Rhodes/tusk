@@ -1,13 +1,11 @@
 pub mod pullers;
 use anyhow::Result;
-use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
 use futures::TryStreamExt;
 use sqlx::PgPool;
 
 use crate::{
-    actions::Action,
     config_file_manager::{ddl_config::get_uncommented_file_contents, user_config::UserConfig},
     db_manager,
 };
@@ -260,11 +258,8 @@ impl Pull {
 
         return Ok(());
     }
-}
 
-#[async_trait]
-impl Action for Pull {
-    async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&self) -> anyhow::Result<()> {
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
@@ -275,8 +270,8 @@ impl Action for Pull {
         println!("\nBeginning Pulling:");
 
         let clean_before_pull = UserConfig::get_global()?
-            .pull_options
-            .clean_ddl_before_pulling;
+        .pull_options
+        .clean_ddl_before_pulling;
 
         for schema in approved_schemas {
             println!("\nBeginning {} schema pull:", schema);

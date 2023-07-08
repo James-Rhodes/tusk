@@ -1,8 +1,5 @@
-use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
-
-use crate::actions::Action;
 
 pub const ENV_LOCATION: &str = "./.tusk/.env";
 pub const USER_CONFIG_LOCATION: &str = "./.tusk/user_config.yaml";
@@ -61,17 +58,15 @@ pull_options:
 
         return Ok(());
     }
-}
 
-#[async_trait]
-impl Action for Init {
-    async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&self) -> anyhow::Result<()> {
         println!(
-            "\nInitialising the required directory structure and creating template .env file..."
-        );
+        "\nInitialising the required directory structure and creating template .env file..."
+    );
         self.init_directories()?;
         println!("Finished initialisation\n");
 
         return Ok(());
     }
 }
+

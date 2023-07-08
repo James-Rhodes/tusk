@@ -4,13 +4,12 @@ pub mod test_runner;
 use std::{collections::HashMap, path::Path};
 
 use anyhow::{bail, Context, Result};
-use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
 use sqlx::{Postgres, Acquire};
 
 use crate::{
-    actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::test_runner::TestRunner, Action},
+    actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::test_runner::TestRunner},
     config_file_manager::ddl_config::{
         get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
     },
@@ -220,10 +219,3 @@ impl UnitTest {
         return Self::run_unit_tests(&self.functions, self.all).await
     }
 }
-
-// #[async_trait]
-// impl Action for UnitTest {
-//     async fn execute(&self) -> anyhow::Result<()> {
-//         return Self::run_unit_tests(&self.functions, self.all).await
-//     }
-// }

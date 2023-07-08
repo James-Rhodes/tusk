@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 
 use crate::actions::{init::Init,pull::Pull, push::Push, fetch::Fetch, unit_test::UnitTest};
-use crate::actions::Action as CliAction;
 
 #[derive(Debug, Parser)]
 #[clap(author, version, about)]
@@ -39,7 +38,7 @@ impl Action {
             Self::Pull(pull) => pull.execute().await?,
             Self::Push(push) => push.execute().await?,
             Self::Fetch(fetch) => fetch.execute().await?,
-            Self::UnitTest(unit_test) => unit_test.execute().await?,
+            Self::UnitTest(unit_test) => unit_test.execute().await?
         };
         return Ok(());
     }

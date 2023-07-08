@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 
 use anyhow::{Result, Context};
-use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
 use sqlx::postgres::PgRow;
 use sqlx::{PgPool, Row};
 
-use crate::actions::{init::SCHEMA_CONFIG_LOCATION, Action};
 use crate::config_file_manager::ddl_config::get_uncommented_file_contents;
+use crate::actions::init::SCHEMA_CONFIG_LOCATION;
 
 use crate::config_file_manager::user_config::UserConfig;
 use crate::{config_file_manager, db_manager};
@@ -288,11 +287,8 @@ impl Fetch {
 
         return Ok(());
     }
-}
 
-#[async_trait]
-impl Action for Fetch {
-    async fn execute(&self) -> Result<()> {
+    pub async fn execute(&self) -> Result<()> {
         println!("\nBeginning Inventory Fetch:");
 
         let connection = db_manager::DbConnection::new().await?;

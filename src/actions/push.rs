@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
 use sqlx::PgPool;
@@ -14,8 +13,6 @@ use crate::{
     },
     db_manager,
 };
-
-use super::Action;
 
 #[derive(Debug, Args)]
 pub struct Push {
@@ -99,11 +96,8 @@ impl Push {
 
         return Ok(());
     }
-}
 
-#[async_trait]
-impl Action for Push {
-    async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&self) -> anyhow::Result<()> {
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
 
@@ -142,7 +136,7 @@ impl Action for Push {
             } else {
                 // Get the functions that match the patterns passed in
                 let matching_local_funcs =
-                    get_matching_file_contents(&local_funcs, &self.functions, Some(&schema))?;
+                get_matching_file_contents(&local_funcs, &self.functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
                     println!("\nBeginning {} schema push:", schema);
