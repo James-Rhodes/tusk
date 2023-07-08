@@ -35,14 +35,12 @@ pub enum Action {
 impl Action {
     pub async fn execute(&self) -> anyhow::Result<()> {
         match self {
-            Self::Init(init) => init.execute(),
-            Self::Pull(pull) => pull.execute(),
-            Self::Push(push) => push.execute(),
-            Self::Fetch(fetch) => fetch.execute(),
-            Self::UnitTest(unit_test) => unit_test.execute(),
-        }
-        .await?;
-
+            Self::Init(init) => init.execute().await?,
+            Self::Pull(pull) => pull.execute().await?,
+            Self::Push(push) => push.execute().await?,
+            Self::Fetch(fetch) => fetch.execute().await?,
+            Self::UnitTest(unit_test) => unit_test.execute().await?,
+        };
         return Ok(());
     }
 }

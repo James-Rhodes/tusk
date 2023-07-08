@@ -216,11 +216,14 @@ impl UnitTest {
         }
         return Ok(());
     }
-}
-
-#[async_trait]
-impl Action for UnitTest {
-    async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&self) -> anyhow::Result<()> {
         return Self::run_unit_tests(&self.functions, self.all).await
     }
 }
+
+// #[async_trait]
+// impl Action for UnitTest {
+//     async fn execute(&self) -> anyhow::Result<()> {
+//         return Self::run_unit_tests(&self.functions, self.all).await
+//     }
+// }
