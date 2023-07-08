@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use clap::Args;
 use colored::Colorize;
-use sqlx::PgPool;
+use sqlx::{Postgres, Acquire};
 
 use crate::{
     actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::test_runner::TestRunner, Action},
@@ -120,13 +120,14 @@ impl UnitTest {
         ));
     }
 
-    async fn run_function_unit_test(pool: &PgPool, file_paths: &Vec<String>) -> Result<TestStats> {
-        // Get the yaml file paths for functions
+    async fn run_function_unit_test<'a, C>(conn: C, file_paths: &Vec<String>) -> Result<TestStats> 
+    where C: Acquire<'a, Database = Postgres> {
+        let mut pool = conn.acquire().await?;
 
         let mut test_stats = TestStats::default();
         for fp in file_paths {
             let test_runner = TestRunner::from_file(&fp).await?;
-            let test_results = test_runner.run_tests(pool).await?;
+            let test_results = test_runner.run_tests(&mut *pool).await?;
             for test_result in test_results {
                 // print the messages about pass or fail. add to the tally for passed vs failed
                 match test_result {

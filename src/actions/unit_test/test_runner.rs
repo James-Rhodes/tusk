@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::{bail, Result};
 use futures::TryStreamExt;
-use sqlx::{postgres::PgRow, Column, Executor, PgPool, Row, ValueRef};
+use sqlx::{postgres::PgRow, Column, Executor, Row, ValueRef, Postgres, Acquire};
 
 use super::test_config_manager::TestSideEffectConfig;
 
@@ -35,7 +35,10 @@ impl TestRunner {
         return Ok(Self::new(get_test_config(file_path).await?));
     }
 
-    pub async fn run_tests(&self, pool: &PgPool) -> Result<Vec<TestResult>> {
+    pub async fn run_tests<'a, C>(&self, conn: C) -> Result<Vec<TestResult>> 
+    where C: Acquire<'a, Database = Postgres>
+    {
+        let mut conn = conn.acquire().await?;
         if self.tests.is_empty() {
             // return bail!("There must be at least one test defined per unit test yaml file");
             return Err(anyhow::anyhow!(
@@ -44,23 +47,26 @@ impl TestRunner {
         }
         let mut test_results = Vec::with_capacity(self.tests.len());
         for test in &self.tests {
-            let transaction = pool.begin().await?;
-            test_results.push(self.run_test(pool, test).await?);
+            let mut transaction = conn.begin().await?;
+            test_results.push(self.run_test(&mut *transaction, test).await?);
             transaction.rollback().await?;
         }
 
         return Ok(test_results);
     }
 
-    async fn run_test(&self, pool: &PgPool, test: &TestConfig) -> Result<TestResult> {
+    async fn run_test<'a, C>(&self, conn: C, test: &TestConfig) -> Result<TestResult> 
+    where C: Acquire<'a, Database = Postgres>
+    {
         let query: &str = &test.query;
+        let mut conn = conn.acquire().await?;
 
         let func_output_result = match &test.expected_output {
             Some(expected) => {
-                self.check_query_results(pool, query, &expected, &test.name, "Query Result")
+                self.check_query_results(&mut *conn, query, &expected, &test.name, "Query Result")
                     .await?
             }
-            None => match pool.execute(query).await {
+            None => match conn.execute(query).await {
                 Ok(_) => TestResult::Passed {
                     test_name: test.name.clone(),
                 },
@@ -85,7 +91,7 @@ impl TestRunner {
                 expected_query_results,
             }) => {
                 self.check_query_results(
-                    pool,
+                    &mut *conn,
                     table_query,
                     expected_query_results,
                     &test.name,
@@ -101,15 +107,18 @@ impl TestRunner {
         return Ok(func_side_effect_result);
     }
 
-    async fn check_query_results(
+    async fn check_query_results<'a, C>(
         &self,
-        pool: &PgPool,
+        conn: C,
         query: &str,
         expected_result: &Vec<HashMap<String, String>>,
         test_name: &str,
         test_prefix: &str,
-    ) -> Result<TestResult> {
-        let mut rows = pool.fetch(query);
+    ) -> Result<TestResult> 
+    where C: Acquire<'a, Database = Postgres>
+    {
+        let mut conn = conn.acquire().await?;
+        let mut rows = conn.fetch(query);
 
         let mut current_row_index = 0;
 
@@ -221,7 +230,7 @@ mod tests {
         let test_runner = TestRunner::new(test_config);
 
         let pool = db_connection.get_connection_pool();
-        let results = tokio_test::block_on(test_runner.run_tests(&pool)).expect("This to not fail");
+        let results = tokio_test::block_on(test_runner.run_tests(pool)).expect("This to not fail");
 
         assert_eq!(
             results[0],
@@ -317,7 +326,7 @@ mod tests {
 
         let test_runner = TestRunner::new(test_config);
 
-        let results = tokio_test::block_on(test_runner.run_tests(&pool)).expect("This to not fail");
+        let results = tokio_test::block_on(test_runner.run_tests(pool)).expect("This to not fail");
 
         assert_eq!(
             results[0],
