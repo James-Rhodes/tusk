@@ -1,9 +1,10 @@
 pub mod pullers;
-use anyhow::Result;
+use anyhow::{Result, Context};
 use clap::Args;
 use colored::Colorize;
 use futures::TryStreamExt;
 use sqlx::PgPool;
+use walkdir::WalkDir;
 
 use crate::{
     config_file_manager::{ddl_config::get_uncommented_file_contents, user_config::UserConfig},
@@ -235,18 +236,48 @@ impl Pull {
     }
 
     fn clean_ddl_dir(dir_path: &str) -> Result<()> {
-        if std::path::Path::new(&dir_path).exists() {
-            println!("\t{}: Directory {}", "Removed".yellow(), dir_path.magenta());
+        if !std::path::Path::new(&dir_path).exists() {
+            // Path doesn't exist so just return
+            return Ok(());
+        }
+
+        if dir_path.ends_with("functions") {
+            // This is a function directory and so we need extra logic to ensure unit tests aren't
+            // removed
+            Self::clean_function_dir(dir_path)?;
+        } else {
             std::fs::remove_dir_all(dir_path)?;
+        }
+
+        println!("\t{}: Directory {}", "Cleaned".yellow(), dir_path.magenta());
+        return Ok(());
+    }
+
+    fn clean_function_dir(dir_path: &str) -> Result<()> {
+        for entry in WalkDir::new(dir_path)
+            .min_depth(1)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_dir())
+        {
+            let mut unit_test_path = entry.into_path();
+            unit_test_path.push(std::path::Path::new("unit_tests"));
+
+            if !unit_test_path.exists() {
+                // Don't delete the directory if unit tests are defined within the directory
+                std::fs::remove_dir_all(unit_test_path.parent().context("This path must have a parent")?)?;
+            }
         }
 
         return Ok(());
     }
 
     async fn create_schema_def(schema: &str) -> Result<()> {
-        
         let schema_ddl_dir = format!("./schemas/{}/{}.sql", schema, schema);
-        let parent_path = std::path::Path::new(&schema_ddl_dir).parent().expect("There is always a parent to the above path");
+        let parent_path = std::path::Path::new(&schema_ddl_dir)
+            .parent()
+            .expect("There is always a parent to the above path");
         if !parent_path.exists() {
             tokio::fs::create_dir_all(&parent_path).await?;
         }
@@ -270,8 +301,8 @@ impl Pull {
         println!("\nBeginning Pulling:");
 
         let clean_before_pull = UserConfig::get_global()?
-        .pull_options
-        .clean_ddl_before_pulling;
+            .pull_options
+            .clean_ddl_before_pulling;
 
         for schema in approved_schemas {
             println!("\nBeginning {} schema pull:", schema);
