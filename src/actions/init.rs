@@ -30,18 +30,20 @@ impl Init {
                 USER_CONFIG_LOCATION,
                 r#"
 fetch_options:
-    new_items_commented:
+    new_items_commented: # Decide if new items fetched from the DB should be added to their config files as comments or not
       schemas: true
       functions: false
       table_ddl: false
       table_data: true
       views: false
       data_types: false
-    delete_items_from_config: true
+    delete_items_from_config: true # Decide if items that exist in the config files but not on the DB should be deleted from the config files on fetch
 
 pull_options:
-    clean_ddl_before_pulling: true
-    pg_dump_additional_args:
+    clean_ddl_before_pulling: true # Delete files before repopulating with pull. Functions will only be deleted if there aren't unit tests defined for the function
+    pg_dump_additional_args: # These are additional user args that can be added to the calls to pg_dump
+push_options:
+    test_after_push: true # Run unit tests after pushing the functions. If ANY of the tests fail then all of the functions that were pushed will be rolled back.
                 "#,
             )?;
             println!("\tCreated file: {}", USER_CONFIG_LOCATION.bold());

@@ -20,14 +20,16 @@ pub struct PullOptions{
     pub pg_dump_additional_args: Vec<String>
 }
 
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct PushOptions{}
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PushOptions{
+    pub test_after_push: bool
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserConfig {
     pub fetch_options: FetchOptions,
     pub pull_options: PullOptions,
-    // _push_options: PushOptions
+    pub push_options: PushOptions
 }
 
 impl UserConfig{
@@ -68,6 +70,8 @@ pull_options:
     pg_dump_additional_args:
       - "--no-privileges"
       - "--no-tablespaces"
+push_options:
+    test_after_push: true
         "#;
 
 
@@ -88,6 +92,9 @@ pull_options:
             pull_options: PullOptions{
                 clean_ddl_before_pulling: true,
                 pg_dump_additional_args: vec!["--no-privileges".to_string(), "--no-tablespaces".to_string()],
+            },
+            push_options: PushOptions{
+                test_after_push: true
             }
         };
 
