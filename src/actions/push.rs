@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
-use sqlx::PgPool;
+use sqlx::{Acquire, Postgres};
 use walkdir;
 
 use crate::{
-    actions::init::SCHEMA_CONFIG_LOCATION,
-    config_file_manager::ddl_config::{
+    actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::UnitTest},
+    config_file_manager::{ddl_config::{
         get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
-    },
+    }, user_config::UserConfig},
     db_manager,
 };
 
@@ -18,7 +18,7 @@ use crate::{
 pub struct Push {
     /// The functions to push to the database. Specify the schema as my_schema.func or my_schema.% to
     /// push all of the functions within my_schema
-    #[clap(num_args = 0.., trailing_var_arg=true, index=1, required_unless_present="all")]
+    #[clap(num_args = 0.., index=1, required_unless_present="all")]
     // This is how you allow it to be a
     // positional argument rather than a flagged argument
     functions: Vec<String>,
@@ -26,6 +26,16 @@ pub struct Push {
     /// Push all of the functions from all schemas to the database
     #[arg(short, long)]
     all: bool,
+
+    /// Force unit tests to be run, rolling back the push of functions if any unit tests fail
+    #[arg(long)]
+    #[clap(conflicts_with="no_test")]
+    test: bool,
+
+    /// Don't run unit tests after the pushing of functions
+    #[arg(long)]
+    #[clap(conflicts_with="test")]
+    no_test: bool,
 }
 
 impl Push {
@@ -66,15 +76,17 @@ impl Push {
         return Ok((func_paths.keys().map(|val| val.to_string()).collect(), func_paths));
     }
 
-    async fn push_func(
+    async fn push_func<'c, C>(
         &self,
-        pool: &PgPool,
+        conn: C,
         func_name: &str,
         func_paths: &Vec<String>,
-    ) -> Result<()> {
+    ) -> Result<()> 
+    where C: Acquire<'c, Database = Postgres> {
+        let mut conn = conn.acquire().await?;
         for func_path in func_paths {
             let file_contents = std::fs::read_to_string(func_path)?;
-            match sqlx::query(&file_contents).execute(pool).await {
+            match sqlx::query(&file_contents).execute(&mut *conn).await {
                 Ok(_) => println!(
                     "\t{}: {} {}",
                     func_name.bold().magenta(),
@@ -98,8 +110,11 @@ impl Push {
     }
 
     pub async fn execute(&self) -> anyhow::Result<()> {
+        // TODO: Refactor this to run all of the pushing within a transaction so it can be rolled
+        // back
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
+        let mut transaction = pool.begin().await?;
 
         let schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
@@ -125,7 +140,7 @@ impl Push {
                 }
                 for func in local_funcs.iter() {
                     self.push_func(
-                        pool,
+                        &mut *transaction,
                         &func,
                         local_func_paths
                             .get(func)
@@ -144,7 +159,7 @@ impl Push {
 
                 for func in matching_local_funcs {
                     self.push_func(
-                        pool,
+                        &mut *transaction,
                         &func,
                         local_func_paths
                             .get(func)
@@ -154,6 +169,19 @@ impl Push {
                 }
             }
         }
+        let should_unit_test = self.test || UserConfig::get_global()?.push_options.test_after_push;
+
+        if should_unit_test && !self.no_test {
+            // Run the unit tests
+            let test_results = UnitTest::run_unit_tests(&mut *transaction, &self.functions, self.all).await?;
+            if test_results.num_failed != 0 {
+                println!("{}: Due to unit test failure, all functions have been rolled back to their original state.", "Error".red());
+                transaction.rollback().await?;
+                return Ok(());
+            }
+        }
+
+        transaction.commit().await?;
 
         return Ok(());
     }

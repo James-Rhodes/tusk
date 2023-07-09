@@ -208,7 +208,7 @@ impl UnitTest {
                     get_matching_file_contents(&funcs, &functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
-                    println!("\nBeginning {} schema push:", schema);
+                    println!("\nBeginning {} schema unit tests:", schema);
                 }
 
                 for func in matching_local_funcs {
