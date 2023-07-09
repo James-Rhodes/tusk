@@ -16,10 +16,17 @@ use crate::{
     db_manager,
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TestStats {
     pub num_passed: u32,
     pub num_failed: u32,
+}
+
+impl std::ops::AddAssign for TestStats{
+    fn add_assign(&mut self, rhs: Self) {
+        self.num_passed += rhs.num_passed;
+        self.num_failed += rhs.num_failed;
+    }
 }
 
 #[derive(Debug, Args)]
@@ -121,12 +128,12 @@ impl UnitTest {
 
     async fn run_function_unit_test<'a, C>(conn: C, file_paths: &Vec<String>) -> Result<TestStats> 
     where C: Acquire<'a, Database = Postgres> {
-        let mut pool = conn.acquire().await?;
+        let mut conn = conn.acquire().await?;
 
         let mut test_stats = TestStats::default();
         for fp in file_paths {
             let test_runner = TestRunner::from_file(&fp).await?;
-            let test_results = test_runner.run_tests(&mut *pool).await?;
+            let test_results = test_runner.run_tests(&mut *conn).await?;
             for test_result in test_results {
                 // print the messages about pass or fail. add to the tally for passed vs failed
                 match test_result {
@@ -158,9 +165,11 @@ impl UnitTest {
         return Ok(test_stats);
     }
 
-    async fn run_unit_tests(functions: &Vec<String>, run_all: bool) -> Result<()> {
-        let connection = db_manager::DbConnection::new().await?;
-        let pool = connection.get_connection_pool();
+    pub async fn run_unit_tests<'c, C>(conn: C, functions: &Vec<String>, run_all: bool) -> Result<TestStats> 
+    where C: Acquire<'c, Database = Postgres> {
+
+        let mut conn = conn.acquire().await?;
+        let mut total_stats = TestStats::default();
 
         let schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
@@ -185,8 +194,8 @@ impl UnitTest {
                     println!("\nBeginning {} schema unit tests:", schema);
                 }
                 for func in funcs.iter() {
-                    Self::run_function_unit_test(
-                        pool,
+                    total_stats += Self::run_function_unit_test(
+                        &mut *conn,
                         unit_test_paths
                             .get(func)
                             .context("The function path should match a function")?,
@@ -203,8 +212,8 @@ impl UnitTest {
                 }
 
                 for func in matching_local_funcs {
-                    Self::run_function_unit_test(
-                        pool,
+                    total_stats += Self::run_function_unit_test(
+                        &mut *conn,
                         unit_test_paths
                             .get(func)
                             .context("The function path should match a function")?,
@@ -213,9 +222,15 @@ impl UnitTest {
                 }
             }
         }
-        return Ok(());
+        return Ok(total_stats);
     }
     pub async fn execute(&self) -> anyhow::Result<()> {
-        return Self::run_unit_tests(&self.functions, self.all).await
+
+        let connection = db_manager::DbConnection::new().await?;
+        let pool = connection.get_connection_pool();
+
+        Self::run_unit_tests(pool, &self.functions, self.all).await?;
+
+        return Ok(());
     }
 }
