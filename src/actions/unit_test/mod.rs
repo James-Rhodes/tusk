@@ -132,7 +132,7 @@ impl UnitTest {
 
         let mut test_stats = TestStats::default();
         for fp in file_paths {
-            let test_runner = TestRunner::from_file(&fp).await?;
+            let test_runner = TestRunner::from_file(fp).await?;
             let test_results = test_runner.run_tests(&mut *conn).await?;
             for test_result in test_results {
                 // print the messages about pass or fail. add to the tally for passed vs failed
@@ -156,13 +156,13 @@ impl UnitTest {
                             test_name.bold(),
                             "Failed".red()
                         );
-                        println!("\t\t{}", error_message.replace("\n", "\n\t\t"));
+                        println!("\t\t{}", error_message.replace('\n', "\n\t\t"));
                         test_stats.num_failed += 1;
                     }
                 }
             }
         }
-        return Ok(test_stats);
+        Ok(test_stats)
     }
 
     pub async fn run_unit_tests<'c, C>(conn: C, functions: &Vec<String>, run_all: bool) -> Result<TestStats> 
@@ -185,7 +185,7 @@ impl UnitTest {
             // Remove all local funcs that are commented in the config file
             let funcs = funcs
                 .into_iter()
-                .filter(|item| !commented_funcs.contains(&item))
+                .filter(|item| !commented_funcs.contains(item))
                 .collect::<Vec<String>>();
 
             if run_all {
@@ -205,7 +205,7 @@ impl UnitTest {
             } else {
                 // Get the functions that match the patterns passed in
                 let matching_local_funcs =
-                    get_matching_file_contents(&funcs, &functions, Some(&schema))?;
+                    get_matching_file_contents(&funcs, functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
                     println!("\nBeginning {} schema unit tests:", schema);
@@ -222,7 +222,7 @@ impl UnitTest {
                 }
             }
         }
-        return Ok(total_stats);
+        Ok(total_stats)
     }
     pub async fn execute(&self) -> anyhow::Result<()> {
 
@@ -231,6 +231,6 @@ impl UnitTest {
 
         Self::run_unit_tests(pool, &self.functions, self.all).await?;
 
-        return Ok(());
+        Ok(())
     }
 }

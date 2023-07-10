@@ -38,7 +38,7 @@ impl UserConfig{
         let user_config = serde_yaml::from_str(&std::fs::read_to_string(file_path)?)?;
         USER_CONFIG.set(user_config).expect("This should only be called by one thread in this application");
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn get_global() -> Result<&'static UserConfig> {

@@ -40,6 +40,6 @@ impl Action {
             Self::Fetch(fetch) => fetch.execute().await?,
             Self::UnitTest(unit_test) => unit_test.execute().await?
         };
-        return Ok(());
+        Ok(())
     }
 }

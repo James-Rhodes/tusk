@@ -27,9 +27,9 @@ pub trait SQLPuller {
         schema: &'conn str,
         config_file_path: &str,
     ) -> Result<RowStream<'conn>> {
-        format_config_file(&config_file_path)?;
+        format_config_file(config_file_path)?;
 
-        let approved_data_types = get_uncommented_file_contents(&config_file_path)?;
+        let approved_data_types = get_uncommented_file_contents(config_file_path)?;
 
         return Ok(sqlx::query_as::<_, DDL>(Self::get_ddl_query())
             .bind(schema)
@@ -44,12 +44,11 @@ pub trait SQLPuller {
         config_file_path: &str,
         items: &'conn Vec<String>,
     ) -> Result<RowStream<'conn>> {
-        format_config_file(&config_file_path)?;
+        format_config_file(config_file_path)?;
 
-        let approved_data_types = get_uncommented_file_contents(&config_file_path)?;
-        let items = get_matching_file_contents(&approved_data_types, &items, Some(schema))?
-            .into_iter()
-            .map(|item| item.clone())
+        let approved_data_types = get_uncommented_file_contents(config_file_path)?;
+        let items = get_matching_file_contents(&approved_data_types, items, Some(schema))?
+            .into_iter().cloned()
             .collect::<Vec<String>>();
 
         return Ok(sqlx::query_as::<_, DDL>(Self::get_ddl_query())
@@ -77,16 +76,16 @@ pub trait PgDumpPuller: Send + 'static {
         connection_string: &str,
         pg_bin_path: &str,
     ) -> Result<()> {
-        format_config_file(&config_file_path)?;
+        format_config_file(config_file_path)?;
 
-        let approved_items = get_uncommented_file_contents(&config_file_path)?;
+        let approved_items = get_uncommented_file_contents(config_file_path)?;
 
-        if approved_items.len() == 0 {
+        if approved_items.is_empty() {
             return Ok(());
         }
 
         if !std::path::Path::new(&ddl_parent_dir).exists() {
-            std::fs::create_dir_all(&ddl_parent_dir)?;
+            std::fs::create_dir_all(ddl_parent_dir)?;
         }
 
         let db_name_arg = format!("--dbname={}", connection_string);
@@ -117,9 +116,9 @@ pub trait PgDumpPuller: Send + 'static {
         pg_bin_path: &str,
         items: &Vec<String>,
     ) -> Result<()> {
-        format_config_file(&config_file_path)?;
+        format_config_file(config_file_path)?;
 
-        let approved_tables = get_uncommented_file_contents(&config_file_path)?;
+        let approved_tables = get_uncommented_file_contents(config_file_path)?;
 
         let items = get_matching_file_contents(&approved_tables, items, Some(schema))?;
 
@@ -128,7 +127,7 @@ pub trait PgDumpPuller: Send + 'static {
         }
 
         if !std::path::Path::new(&ddl_parent_dir).exists() {
-            std::fs::create_dir_all(&ddl_parent_dir)?;
+            std::fs::create_dir_all(ddl_parent_dir)?;
         }
 
         let db_name_arg = format!("--dbname={}", connection_string);
@@ -151,14 +150,14 @@ pub trait PgDumpPuller: Send + 'static {
         return Ok(());
     }
 
-    fn get_ddl_from_bytes<'d>(ddl_bytes: &'d Vec<u8>) -> Result<&'d str> {
-        let ddl = std::str::from_utf8(&ddl_bytes)?;
+    fn get_ddl_from_bytes(ddl_bytes: &Vec<u8>) -> Result<&str> {
+        let ddl = std::str::from_utf8(ddl_bytes)?;
 
         if let Some(end_of_header_pos) = ddl.find("SET") {
             return Ok(&ddl[end_of_header_pos..]);
         }
 
-        return Ok(&ddl);
+        Ok(ddl)
     }
 
     async fn run_pg_dump(
@@ -183,8 +182,8 @@ pub trait PgDumpPuller: Send + 'static {
             .await?;
 
         let command_err = std::str::from_utf8(&command.stderr[..]).unwrap_or("");
-        if command_err.len() > 0 {
-            let command_err = command_err.trim_end().replace("\n", "\n\t\t");
+        if !command_err.is_empty() {
+            let command_err = command_err.trim_end().replace('\n', "\n\t\t");
             println!("\t{} ({}/{}.sql): {}", "Warning".yellow(), ddl_parent_dir, item, command_err);
             return Ok(());
         }

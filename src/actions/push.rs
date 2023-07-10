@@ -44,8 +44,15 @@ impl Push {
 
         let mut func_paths: HashMap<String, Vec<String>> = HashMap::new();
 
+        let function_dir = &format!("./schemas/{}/functions", schema);
+        let function_dir = std::path::Path::new(function_dir);
+
+        if !function_dir.exists() {
+            return Ok((vec![], HashMap::new()));
+        }
+
         let dir_walker =
-            walkdir::WalkDir::new(format!("./schemas/{}/functions", schema)).max_depth(2);
+            walkdir::WalkDir::new(function_dir).max_depth(2);
         for dir in dir_walker.into_iter() {
             let dir = dir?;
             let file_name = dir
@@ -102,11 +109,12 @@ impl Push {
                     );
                     let error_text = db_manager::error_handling::get_db_error(e);
                     println!("\t\t{}", error_text);
+                    return Err(anyhow::anyhow!("All functions have been rolled back. Please fix the error within the function defined at: \n\t'{func_path}'"));
                 }
             };
         }
 
-        return Ok(());
+        Ok(())
     }
 
     pub async fn execute(&self) -> anyhow::Result<()> {
@@ -130,7 +138,7 @@ impl Push {
             // Remove all local funcs that are commented in the config file
             let local_funcs = local_funcs
                 .into_iter()
-                .filter(|item| !commented_funcs.contains(&item))
+                .filter(|item| !commented_funcs.contains(item))
                 .collect::<Vec<String>>();
 
             if self.all {
@@ -141,7 +149,7 @@ impl Push {
                 for func in local_funcs.iter() {
                     self.push_func(
                         &mut *transaction,
-                        &func,
+                        func,
                         local_func_paths
                             .get(func)
                             .expect("The function path should match a function"),
@@ -160,7 +168,7 @@ impl Push {
                 for func in matching_local_funcs {
                     self.push_func(
                         &mut *transaction,
-                        &func,
+                        func,
                         local_func_paths
                             .get(func)
                             .expect("The function path should match a function"),
@@ -183,6 +191,6 @@ impl Push {
 
         transaction.commit().await?;
 
-        return Ok(());
+        Ok(())
     }
 }

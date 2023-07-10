@@ -33,10 +33,8 @@ impl SSHConnection {
             .arg("exit")
             .arg(format!("{}@{}", user, ssh_host))
             .output()
-            .expect(&format!(
-                "Failed to close any ports currently on backup-socket to {}@{}",
-                user, ssh_host
-            ));
+            .unwrap_or_else(|_| panic!("Failed to close any ports currently on backup-socket to {}@{}",
+                user, ssh_host));
 
         // Forward the port
         println!("Forwarding the port");
@@ -52,14 +50,14 @@ impl SSHConnection {
             ))
             .arg(format!("{}@{}", user, ssh_host))
             .output()
-            .expect(&format!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_bind_port, db_port, ssh_host, user));
+            .unwrap_or_else(|_| panic!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_bind_port, db_port, ssh_host, user));
 
-        return SSHConnection {
+        SSHConnection {
             ssh_host,
             user,
             _local_bind_port: local_bind_port,
             _db_port: db_port,
-        };
+        }
     }
 }
 
@@ -74,10 +72,8 @@ impl Drop for SSHConnection {
             .arg("exit")
             .arg(format!("{}@{}", self.user, self.ssh_host))
             .output()
-            .expect(&format!(
-                "Failed to close any ports currently on backup-socket to {}@{}",
-                self.user, self.ssh_host
-            ));
+            .unwrap_or_else(|_| panic!("Failed to close any ports currently on backup-socket to {}@{}",
+                self.user, self.ssh_host));
     }
 }
 
@@ -116,25 +112,25 @@ impl DbConnection {
             .connect(&connection_string)
             .await?;
 
-        return Ok(DbConnection {
+        Ok(DbConnection {
             _env_vars,
             pool,
             connection_string,
             _ssh_connection,
             pg_bin_path,
-        });
+        })
     }
 
     pub fn get_connection_string(&self) -> &str {
-        return &self.connection_string;
+        &self.connection_string
     }
 
     pub fn get_pg_bin_path(&self) -> &str {
-        return &self.pg_bin_path;
+        &self.pg_bin_path
     }
 
     pub fn get_connection_pool(&self) -> &PgPool {
-        return &self.pool;
+        &self.pool
     }
 
     fn get_db_env_vars() -> Result<(DbEnvVars, Option<SSHConnection>)> {
@@ -172,7 +168,7 @@ impl DbConnection {
             None
         };
 
-        return Ok((
+        Ok((
             DbEnvVars {
                 db_user,
                 db_pass,
@@ -181,6 +177,6 @@ impl DbConnection {
                 db_name,
             },
             ssh_connection,
-        ));
+        ))
     }
 }

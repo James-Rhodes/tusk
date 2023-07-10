@@ -1,5 +1,5 @@
 use clap::Parser;
-use anyhow;
+
 
 use tusk::{cli, actions::init::USER_CONFIG_LOCATION};
 
