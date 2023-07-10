@@ -102,6 +102,7 @@ impl Push {
                     );
                     let error_text = db_manager::error_handling::get_db_error(e);
                     println!("\t\t{}", error_text);
+                    return Err(anyhow::anyhow!("All functions have been rolled back. Please fix the error within the function defined at: \n\t'{func_path}'"));
                 }
             };
         }
