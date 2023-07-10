@@ -44,8 +44,15 @@ impl Push {
 
         let mut func_paths: HashMap<String, Vec<String>> = HashMap::new();
 
+        let function_dir = &format!("./schemas/{}/functions", schema);
+        let function_dir = std::path::Path::new(function_dir);
+
+        if !function_dir.exists() {
+            return Ok((vec![], HashMap::new()));
+        }
+
         let dir_walker =
-            walkdir::WalkDir::new(format!("./schemas/{}/functions", schema)).max_depth(2);
+            walkdir::WalkDir::new(function_dir).max_depth(2);
         for dir in dir_walker.into_iter() {
             let dir = dir?;
             let file_name = dir
