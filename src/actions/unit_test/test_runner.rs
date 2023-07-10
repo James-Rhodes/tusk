@@ -28,11 +28,11 @@ pub struct TestRunner {
 
 impl TestRunner {
     pub fn new(tests: Vec<TestConfig>) -> Self {
-        return Self { tests };
+        Self { tests }
     }
 
     pub async fn from_file(file_path: &str) -> Result<Self> {
-        return Ok(Self::new(get_test_config(file_path).await?));
+        Ok(Self::new(get_test_config(file_path).await?))
     }
 
     pub async fn run_tests<'a, C>(&self, conn: C) -> Result<Vec<TestResult>> 
@@ -52,7 +52,7 @@ impl TestRunner {
             transaction.rollback().await?;
         }
 
-        return Ok(test_results);
+        Ok(test_results)
     }
 
     async fn run_test<'a, C>(&self, conn: C, test: &TestConfig) -> Result<TestResult> 
@@ -63,7 +63,7 @@ impl TestRunner {
 
         let func_output_result = match &test.expected_output {
             Some(expected) => {
-                self.check_query_results(&mut *conn, query, &expected, &test.name, "Query Result")
+                self.check_query_results(&mut *conn, query, expected, &test.name, "Query Result")
                     .await?
             }
             None => match conn.execute(query).await {
@@ -104,7 +104,7 @@ impl TestRunner {
             },
         };
 
-        return Ok(func_side_effect_result);
+        Ok(func_side_effect_result)
     }
 
     async fn check_query_results<'a, C>(
@@ -156,9 +156,9 @@ impl TestRunner {
             return Ok(TestResult::Failed{test_name: test_name.to_string(), error_message: format!("{}: The number of returned rows from query: {} was incorrect.\nReceived {} rows, expected {}", test_prefix, query, current_row_index, expected_result.len()) });
         }
 
-        return Ok(TestResult::Passed {
+        Ok(TestResult::Passed {
             test_name: test_name.to_string(),
-        });
+        })
     }
 
     fn row_to_map(row: PgRow) -> Result<HashMap<String, String>> {
@@ -177,7 +177,7 @@ impl TestRunner {
             result.insert(col.name().to_string(), value);
         }
 
-        return Ok(result);
+        Ok(result)
     }
 }
 

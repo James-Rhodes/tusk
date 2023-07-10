@@ -116,6 +116,6 @@ pub struct DataTypePuller {}
 
 impl SQLPuller for DataTypePuller {
     fn get_ddl_query() -> &'static str {
-        return DATA_TYPE_QUERY;
+        DATA_TYPE_QUERY
     }
 }

@@ -106,7 +106,7 @@ impl Push {
             };
         }
 
-        return Ok(());
+        Ok(())
     }
 
     pub async fn execute(&self) -> anyhow::Result<()> {
@@ -130,7 +130,7 @@ impl Push {
             // Remove all local funcs that are commented in the config file
             let local_funcs = local_funcs
                 .into_iter()
-                .filter(|item| !commented_funcs.contains(&item))
+                .filter(|item| !commented_funcs.contains(item))
                 .collect::<Vec<String>>();
 
             if self.all {
@@ -141,7 +141,7 @@ impl Push {
                 for func in local_funcs.iter() {
                     self.push_func(
                         &mut *transaction,
-                        &func,
+                        func,
                         local_func_paths
                             .get(func)
                             .expect("The function path should match a function"),
@@ -160,7 +160,7 @@ impl Push {
                 for func in matching_local_funcs {
                     self.push_func(
                         &mut *transaction,
-                        &func,
+                        func,
                         local_func_paths
                             .get(func)
                             .expect("The function path should match a function"),
@@ -183,6 +183,6 @@ impl Push {
 
         transaction.commit().await?;
 
-        return Ok(());
+        Ok(())
     }
 }

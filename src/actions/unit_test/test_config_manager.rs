@@ -30,7 +30,7 @@ pub async fn get_test_config(file_path: &str) -> Result<Vec<TestConfig>> {
         format!("The given yaml file '{}' could not be parsed into a valid unit test definition", file_path),
     )?;
 
-    return Ok(test_config);
+    Ok(test_config)
 }
 // }
 

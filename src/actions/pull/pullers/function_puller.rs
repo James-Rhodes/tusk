@@ -30,6 +30,6 @@ pub struct FunctionPuller {}
 
 impl SQLPuller for FunctionPuller {
     fn get_ddl_query() -> &'static str {
-        return FUNCTION_DDL_QUERY;
+        FUNCTION_DDL_QUERY
     }
 }

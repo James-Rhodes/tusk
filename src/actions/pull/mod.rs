@@ -66,10 +66,9 @@ impl Pull {
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
             if ddl.definition.is_empty() {
                 println!(
-                    "\t{} ({}): {}",
+                    "\t{} ({}): Does not exist within the database",
                     "Warning".yellow(),
-                    file_path,
-                    "Does not exist within the database"
+                    file_path
                 );
                 continue;
             }
@@ -92,7 +91,7 @@ impl Pull {
             std::fs::write(file_path, ddl.definition)?;
         }
 
-        return Ok(());
+        Ok(())
     }
     async fn pull_some<T: pullers::SQLPuller>(
         pool: &PgPool,
@@ -107,10 +106,9 @@ impl Pull {
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
             if ddl.definition.is_empty() {
                 println!(
-                    "\t{} ({}): {}",
+                    "\t{} ({}): Does not exist within the database",
                     "Warning".yellow(),
-                    file_path,
-                    "Does not exist within the database"
+                    file_path
                 );
                 continue;
             }
@@ -133,7 +131,7 @@ impl Pull {
             std::fs::write(file_path, ddl.definition)?;
         }
 
-        return Ok(());
+        Ok(())
     }
 
     async fn pull_sql<T: pullers::SQLPuller>(
@@ -157,7 +155,7 @@ impl Pull {
         }
 
         if let Some(input_items) = input_items {
-            if input_items.len() == 0 {
+            if input_items.is_empty() {
                 // Run a pull on all of the items
 
                 if clean_before_pull {
@@ -171,7 +169,7 @@ impl Pull {
                 Self::pull_some::<T>(pool, schema_name, config_file_path, input_items).await?;
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     async fn pull_pg_dump<T: pullers::PgDumpPuller>(
@@ -203,7 +201,7 @@ impl Pull {
         }
 
         if let Some(input_items) = input_items {
-            if input_items.len() == 0 {
+            if input_items.is_empty() {
                 // Run a pull on all of the items
 
                 if clean_before_pull {
@@ -232,7 +230,7 @@ impl Pull {
                 .await?;
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     fn clean_ddl_dir(dir_path: &str) -> Result<()> {
@@ -250,7 +248,7 @@ impl Pull {
         }
 
         println!("\t{}: Directory {}", "Cleaned".yellow(), dir_path.magenta());
-        return Ok(());
+        Ok(())
     }
 
     fn clean_function_dir(dir_path: &str) -> Result<()> {
@@ -270,7 +268,7 @@ impl Pull {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     async fn create_schema_def(schema: &str) -> Result<()> {
@@ -287,7 +285,7 @@ impl Pull {
 
         println!("\tPulling {}", schema_ddl_dir.magenta());
 
-        return Ok(());
+        Ok(())
     }
 
     pub async fn execute(&self) -> anyhow::Result<()> {
@@ -382,6 +380,6 @@ impl Pull {
             )
             .await?;
         }
-        return Ok(());
+        Ok(())
     }
 }

@@ -15,7 +15,7 @@ pub fn get_db_error(e: Error) -> String {
                         position.to_string()
                     }
                     Some(sqlx::postgres::PgErrorPosition::Internal { position, query }) => {
-                        format!("{} for query {}", position.to_string(), query.to_string())
+                        format!("{} for query {}", position, query)
                     }
                     None => String::from(""),
                 };
@@ -28,7 +28,7 @@ pub fn get_db_error(e: Error) -> String {
                     hint
                 )
             }
-            Err(e) => format!("{}: {}", "Error".red(), e.to_string()),
+            Err(e) => format!("{}: {}", "Error".red(), e),
         },
         _ => format!("{}: An unexpected error occured", "Error".red()),
     };

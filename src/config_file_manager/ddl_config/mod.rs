@@ -9,17 +9,15 @@ pub struct ChangeStatus {
 }
 
 pub fn format_config_file(file_path: &str) -> Result<()> {
-    let local_file_contents = std::fs::read_to_string(file_path).expect(&format!(
-        "The config file found at {} should exist",
-        file_path
-    ));
+    let local_file_contents = std::fs::read_to_string(file_path).unwrap_or_else(|_| panic!("The config file found at {} should exist",
+        file_path));
 
     std::fs::write(
         file_path,
         format_config_file_contents(&local_file_contents, &None).join("\n"),
     )?;
 
-    return Ok(());
+    Ok(())
 }
 
 fn format_config_file_contents(
@@ -30,7 +28,7 @@ fn format_config_file_contents(
         .trim()
         .lines()
         .filter_map(|line| {
-            let db_item = (*line).trim().replace(" ", "");
+            let db_item = (*line).trim().replace(' ', "");
 
             // Filter out empty lines
             if db_item.is_empty() {
@@ -38,7 +36,7 @@ fn format_config_file_contents(
             }
 
             if let Some(to_filter_out) = to_filter_out {
-                if to_filter_out.contains(&(db_item.replace("//", "").replace("#", ""))) {
+                if to_filter_out.contains(&(db_item.replace("//", "").replace('#', ""))) {
                     return None;
                 }
             }
@@ -47,9 +45,9 @@ fn format_config_file_contents(
         })
         .collect();
 
-    file_contents.sort_by_key(|val| val.replace("//", "").replace(" ", "").replace("#", ""));
+    file_contents.sort_by_key(|val| val.replace("//", "").replace([' ', '#'], ""));
 
-    return file_contents;
+    file_contents
 }
 
 pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
@@ -57,14 +55,14 @@ pub fn get_uncommented_file_contents(file_path: &str) -> Result<Vec<String>> {
         .lines()
         .filter_map(|line| {
             let line_trimmed = line.trim();
-            if line_trimmed.starts_with("//") || line_trimmed.starts_with("#") {
+            if line_trimmed.starts_with("//") || line_trimmed.starts_with('#') {
                 return None;
             }
-            return Some(String::from(line));
+            Some(String::from(line))
         })
         .collect::<Vec<String>>();
 
-    return Ok(result);
+    Ok(result)
 }
 
 pub fn get_commented_file_contents(file_path: &str) -> Result<Vec<String>> {
@@ -72,14 +70,14 @@ pub fn get_commented_file_contents(file_path: &str) -> Result<Vec<String>> {
         .lines()
         .filter_map(|line| {
             let line = line.trim();
-            if line.starts_with("//") || line.starts_with("#") {
-                return Some(line.replace("//", "").replace("#", ""));
+            if line.starts_with("//") || line.starts_with('#') {
+                return Some(line.replace("//", "").replace('#', ""));
             }
-            return None;
+            None
         })
         .collect::<Vec<String>>();
 
-    return Ok(result);
+    Ok(result)
 }
 
 pub fn get_matching_file_contents<'u>(
@@ -92,7 +90,7 @@ pub fn get_matching_file_contents<'u>(
         .filter_map(|item| {
             let matches = file_contents
                 .iter()
-                .filter(|table| match (item.split_once("."), schema_to_match) {
+                .filter(|table| match (item.split_once('.'), schema_to_match) {
                     (Some((schema_name, item_to_match)), Some(schema_to_match)) => {
                         schema_name == schema_to_match
                             && (table.starts_with(item_to_match) || item_to_match == "%")
@@ -102,18 +100,18 @@ pub fn get_matching_file_contents<'u>(
                 })
                 .collect::<Vec<&String>>();
 
-            if matches.len() != 0 {
+            if !matches.is_empty() {
                 return Some(matches);
             }
 
-            return None;
+            None
         })
         .flatten()
         .collect::<Vec<&String>>();
     matching_items.sort();
     matching_items.dedup();
 
-    return Ok(matching_items);
+    Ok(matching_items)
 }
 
 pub fn update_file_contents_from_db(
@@ -126,14 +124,12 @@ pub fn update_file_contents_from_db(
     // Benchmarks should be done at some stage to see if this can be improved by simply merging two
     // sorted vecs
 
-    let mut local_file_contents = std::fs::read_to_string(file_path).expect(&format!(
-        "The config file found at {} should exist",
-        file_path
-    ));
+    let mut local_file_contents = std::fs::read_to_string(file_path).unwrap_or_else(|_| panic!("The config file found at {} should exist",
+        file_path));
 
     let all_local_contents: HashSet<String> = local_file_contents
         .lines()
-        .map(|line| line.replace("//", "").replace(" ", "").replace("#", ""))
+        .map(|line| line.replace("//", "").replace([' ', '#'], ""))
         .collect();
 
     let not_in_local = from_db.difference(&all_local_contents);
@@ -146,7 +142,7 @@ pub fn update_file_contents_from_db(
         } else {
             local_file_contents.push_str(&(String::from("\n") + item));
         }
-        added = added + 1;
+        added += 1;
     });
 
     if delete_items_from_config {
@@ -165,11 +161,11 @@ pub fn update_file_contents_from_db(
         file_path,
         format_config_file_contents(&local_file_contents, &None).join("\n"),
     )?;
-    return Ok(ChangeStatus {
+    Ok(ChangeStatus {
         added,
         removed: 0,
         amount_before_change: all_local_contents.len() as u32,
-    });
+    })
 }
 
 #[cfg(test)]

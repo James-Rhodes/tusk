@@ -33,10 +33,8 @@ impl Fetch {
     ) -> Result<config_file_manager::ddl_config::ChangeStatus> {
         let db_list: HashSet<String> = sqlx::query(query)
             .map(|row: PgRow| {
-                let name: String = row.try_get(column_name).expect(&format!(
-                    "The query\n\n{query}\n\nShould contain a column named {column_name}"
-                ));
-                return name;
+                let name: String = row.try_get(column_name).unwrap_or_else(|_| panic!("The query\n\n{query}\n\nShould contain a column named {column_name}"));
+                name
             })
             .fetch_all(pool)
             .await?
@@ -64,7 +62,7 @@ impl Fetch {
             list_type
         );
 
-        return Ok(change_status);
+        Ok(change_status)
     }
 
     async fn fetch_schema_list(&self, pool: &PgPool) -> Result<SchemaListStatus> {
@@ -95,14 +93,14 @@ impl Fetch {
             return Ok(SchemaListStatus::FirstLoad);
         }
 
-        return Ok(SchemaListStatus::AlreadyLoaded);
+        Ok(SchemaListStatus::AlreadyLoaded)
     }
 
     async fn fetch_function_lists(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
-        config_path = config_path + "/functions_to_include.conf";
+        config_path += "/functions_to_include.conf";
 
         // Create the file that will contain the function config if it does not already exist
         if !std::path::Path::new(&config_path).exists() {
@@ -133,14 +131,14 @@ impl Fetch {
         )
         .await?;
 
-        return Ok(());
+        Ok(())
     }
 
     async fn fetch_table_ddl_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
-        config_path = config_path + "/table_ddl_to_include.conf";
+        config_path += "/table_ddl_to_include.conf";
 
         // Create the file that will contain the function config if it does not already exist
         if !std::path::Path::new(&config_path).exists() {
@@ -170,14 +168,14 @@ impl Fetch {
         )
         .await?;
 
-        return Ok(());
+        Ok(())
     }
 
     async fn fetch_table_data_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
-        config_path = config_path + "/table_data_to_include.conf";
+        config_path += "/table_data_to_include.conf";
 
         // Create the file that will contain the function config if it does not already exist
         if !std::path::Path::new(&config_path).exists() {
@@ -207,13 +205,13 @@ impl Fetch {
         )
         .await?;
 
-        return Ok(());
+        Ok(())
     }
     async fn fetch_data_types_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
-        config_path = config_path + "/data_types_to_include.conf";
+        config_path += "/data_types_to_include.conf";
 
         // Create the file that will contain the function config if it does not already exist
         if !std::path::Path::new(&config_path).exists() {
@@ -246,14 +244,14 @@ impl Fetch {
             )
             .await?;
 
-        return Ok(());
+        Ok(())
     }
 
     async fn fetch_views_list(&self, pool: &PgPool, schema: &str) -> Result<()> {
         let mut config_path = format!("./.tusk/config/schemas/{}", schema);
         std::fs::create_dir_all(&config_path)
             .expect("Should be able to create the required directories");
-        config_path = config_path + "/views_to_include.conf";
+        config_path += "/views_to_include.conf";
 
         // Create the file that will contain the function config if it does not already exist
         if !std::path::Path::new(&config_path).exists() {
@@ -285,7 +283,7 @@ impl Fetch {
         )
         .await?;
 
-        return Ok(());
+        Ok(())
     }
 
     pub async fn execute(&self) -> Result<()> {
@@ -312,6 +310,6 @@ impl Fetch {
             println!();
         }
 
-        return Ok(());
+        Ok(())
     }
 }

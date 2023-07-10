@@ -58,7 +58,7 @@ push_options:
         std::fs::create_dir_all("./schemas")?;
         println!("\tCreated directory: {}", "./schemas".bold());
 
-        return Ok(());
+        Ok(())
     }
 
     pub async fn execute(&self) -> anyhow::Result<()> {
@@ -68,7 +68,7 @@ push_options:
         self.init_directories()?;
         println!("Finished initialisation\n");
 
-        return Ok(());
+        Ok(())
     }
 }
 

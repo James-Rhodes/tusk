@@ -4,6 +4,6 @@ pub struct TableDataPuller {}
 
 impl PgDumpPuller for TableDataPuller {
     fn pg_dump_arg_gen(schema: &str, item_name:&str) -> Vec<String> {
-        return vec![String::from("--column-inserts"), String::from("--no-owner"), String::from("--data-only"), format!("--table={}.{}", schema, item_name)];
+        vec![String::from("--column-inserts"), String::from("--no-owner"), String::from("--data-only"), format!("--table={}.{}", schema, item_name)]
     }
 }
