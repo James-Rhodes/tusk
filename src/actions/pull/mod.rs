@@ -51,6 +51,15 @@ pub struct Pull {
     /// at ./.tusk/config/schemas_to_include.conf
     #[arg(short, long)]
     all: bool,
+
+    #[clap(skip)]
+    pg_bin_path: String,
+
+    #[clap(skip)]
+    connection_string: String,
+
+    #[clap(skip)]
+    clean_before_pull: bool,
 }
 
 impl Pull {
@@ -97,12 +106,11 @@ impl Pull {
         pool: &PgPool,
         schema_name: &str,
         config_file_path: &str,
-        items: &Vec<String>,
+        items: &[String],
     ) -> Result<()> {
         let mut all_ddl = T::get(pool, schema_name, config_file_path, items)?;
 
         while let Some(ddl) = all_ddl.try_next().await? {
-            // TODO: Make this async as well.
             let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
             if ddl.definition.is_empty() {
                 println!(
@@ -141,12 +149,11 @@ impl Pull {
         config_file_path: &str,
         ddl_parent_dir: &str,
         input_items: &Option<Vec<String>>,
-        clean_before_pull: bool,
     ) -> Result<()> {
         if self.all {
             // we want to pull everything if self.all is true
 
-            if clean_before_pull {
+            if self.clean_before_pull {
                 // Remove the directory before repopulating
                 Self::clean_ddl_dir(ddl_parent_dir)?;
             }
@@ -158,7 +165,7 @@ impl Pull {
             if input_items.is_empty() {
                 // Run a pull on all of the items
 
-                if clean_before_pull {
+                if self.clean_before_pull {
                     // Remove the directory before repopulating
                     Self::clean_ddl_dir(ddl_parent_dir)?;
                 }
@@ -177,15 +184,12 @@ impl Pull {
         schema_name: &str,
         config_file_path: &str,
         ddl_parent_dir: &str,
-        connection_string: &str,
-        pg_bin_path: &str,
         input_items: &Option<Vec<String>>,
-        clean_before_pull: bool,
     ) -> Result<()> {
         if self.all {
             // we want to pull everything if self.all is true
 
-            if clean_before_pull {
+            if self.clean_before_pull {
                 // Remove the directory before repopulating
                 Self::clean_ddl_dir(ddl_parent_dir)?;
             }
@@ -194,8 +198,8 @@ impl Pull {
                 schema_name,
                 config_file_path,
                 ddl_parent_dir,
-                connection_string,
-                pg_bin_path,
+                &self.connection_string,
+                &self.pg_bin_path,
             )
             .await?;
         }
@@ -204,7 +208,7 @@ impl Pull {
             if input_items.is_empty() {
                 // Run a pull on all of the items
 
-                if clean_before_pull {
+                if self.clean_before_pull {
                     // Remove the directory before repopulating
                     Self::clean_ddl_dir(ddl_parent_dir)?;
                 }
@@ -213,8 +217,8 @@ impl Pull {
                     schema_name,
                     config_file_path,
                     ddl_parent_dir,
-                    connection_string,
-                    pg_bin_path,
+                    &self.connection_string,
+                    &self.pg_bin_path,
                 )
                 .await?;
             } else {
@@ -223,8 +227,8 @@ impl Pull {
                     schema_name,
                     config_file_path,
                     ddl_parent_dir,
-                    connection_string,
-                    pg_bin_path,
+                    &self.connection_string,
+                    &self.pg_bin_path,
                     input_items,
                 )
                 .await?;
@@ -288,19 +292,20 @@ impl Pull {
         Ok(())
     }
 
-    pub async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&mut self) -> anyhow::Result<()> {
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
         let approved_schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
 
-        let connection_string = connection.get_connection_string();
-        let pg_bin_path = connection.get_pg_bin_path();
+        self.connection_string = connection.get_connection_string().to_owned();
+
+        self.pg_bin_path = connection.get_pg_bin_path().to_owned();
+
+        self.clean_before_pull = UserConfig::get_global()?
+        .pull_options
+        .clean_ddl_before_pulling;
 
         println!("\nBeginning Pulling:");
-
-        let clean_before_pull = UserConfig::get_global()?
-            .pull_options
-            .clean_ddl_before_pulling;
 
         for schema in approved_schemas {
             println!("\nBeginning {} schema pull:", schema);
@@ -320,7 +325,6 @@ impl Pull {
                 ),
                 &format!("./schemas/{}/functions", schema),
                 &self.functions,
-                clean_before_pull,
             )
             .await?;
 
@@ -332,10 +336,7 @@ impl Pull {
                     schema,
                 ),
                 &format!("./schemas/{}/table_ddl", schema),
-                connection_string,
-                pg_bin_path,
                 &self.table_ddl,
-                clean_before_pull,
             )
             .await?;
 
@@ -347,10 +348,7 @@ impl Pull {
                     schema,
                 ),
                 &format!("./schemas/{}/table_data", schema),
-                connection_string,
-                pg_bin_path,
                 &self.table_data,
-                clean_before_pull,
             )
             .await?;
 
@@ -364,7 +362,6 @@ impl Pull {
                 ),
                 &format!("./schemas/{}/data_types", schema),
                 &self.data_types,
-                clean_before_pull,
             )
             .await?;
 
@@ -373,10 +370,7 @@ impl Pull {
                 &schema,
                 &format!("./.tusk/config/schemas/{}/views_to_include.conf", schema,),
                 &format!("./schemas/{}/views", schema),
-                connection_string,
-                pg_bin_path,
                 &self.views,
-                clean_before_pull,
             )
             .await?;
         }

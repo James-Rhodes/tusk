@@ -25,7 +25,6 @@ impl Fetch {
         &self,
         pool: &PgPool,
         query: &str,
-        column_name: &str,
         file_loc: &str,
         list_type: &str,
         add_new_as_commented: bool,
@@ -33,7 +32,7 @@ impl Fetch {
     ) -> Result<config_file_manager::ddl_config::ChangeStatus> {
         let db_list: HashSet<String> = sqlx::query(query)
             .map(|row: PgRow| {
-                let name: String = row.try_get(column_name).unwrap_or_else(|_| panic!("The query\n\n{query}\n\nShould contain a column named {column_name}"));
+                let name: String = row.try_get("item_name").unwrap_or_else(|_| panic!("The query\n\n{query}\n\nShould contain a column named 'item_name'"));
                 name
             })
             .fetch_all(pool)
@@ -75,12 +74,11 @@ impl Fetch {
             .fetch_list(
                 pool,
                 "
-                    SELECT nspname schema_name
+                    SELECT nspname item_name
                     FROM pg_catalog.pg_namespace
                     WHERE nspname NOT ILIKE 'pg_%' AND nspname != 'information_schema'
-                    ORDER BY schema_name;
+                    ORDER BY item_name;
                 ",
-                "schema_name",
                 SCHEMA_CONFIG_LOCATION,
                 "\nSchema",
                 *new_items_commented,
@@ -115,7 +113,7 @@ impl Fetch {
             pool,
             &format!(
                 "
-                    SELECT DISTINCT routine_name AS function_name
+                    SELECT DISTINCT routine_name AS item_name
                     FROM information_schema.routines
                     WHERE (routine_type = 'FUNCTION' OR routine_type = 'PROCEDURE')
                     AND routine_schema = '{}'
@@ -123,7 +121,6 @@ impl Fetch {
                 ",
                 schema
             ),
-            "function_name",
             &config_path,
             &format!("\t{}: Functions", schema.magenta()),
             *new_items_commented,
@@ -153,14 +150,13 @@ impl Fetch {
             pool,
             &format!(
                 "
-                        SELECT table_name
+                        SELECT table_name AS item_name
                         FROM information_schema.tables
                         WHERE table_schema = '{}'
                         AND table_type ILIKE '%TABLE%';
                     ",
                 schema
             ),
-            "table_name",
             &config_path,
             &format!("\t{}: Table DDL", schema.magenta()),
             *new_items_commented,
@@ -190,14 +186,13 @@ impl Fetch {
             pool,
             &format!(
                 "
-                        SELECT table_name
+                        SELECT table_name AS item_name
                         FROM information_schema.tables
                         WHERE table_schema = '{}'
                         AND table_type ILIKE '%TABLE%';
                     ",
                 schema
             ),
-            "table_name",
             &config_path,
             &format!("\t{}: Table data", schema.magenta()),
             *new_items_commented,
@@ -226,7 +221,7 @@ impl Fetch {
                 pool,
                 &format!(
                     "
-                        SELECT t.typname as data_type 
+                        SELECT t.typname AS item_name
                         FROM pg_type t 
                         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace 
                         WHERE (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid)) 
@@ -236,7 +231,6 @@ impl Fetch {
                     ",
                     schema
                 ),
-                "data_type",
                 &config_path,
                 &format!("\t{}: Data type", schema.magenta()),
                 *new_items_commented,
@@ -266,16 +260,15 @@ impl Fetch {
             pool,
             &format!(
                 "
-                    SELECT c.relname as views
+                    SELECT c.relname AS item_name
                     FROM pg_class c
                     JOIN pg_catalog.pg_namespace ns ON ns.oid = c.relnamespace 
                     WHERE ns.nspname = '{}'
                     AND relkind IN ('m', 'v')
-                    ORDER BY views
+                    ORDER BY item_name
                     ",
                 schema
             ),
-            "views",
             &config_path,
             &format!("\t{}: Views", schema.magenta()),
             *new_items_commented,

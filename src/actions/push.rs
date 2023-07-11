@@ -81,7 +81,7 @@ impl Push {
             }
         }
 
-        return Ok((func_paths.keys().map(|val| val.to_string()).collect(), func_paths));
+        Ok(func_paths)
     }
 
     async fn push_func<'c, C>(
@@ -89,8 +89,10 @@ impl Push {
         conn: C,
         func_name: &str,
         func_paths: &Vec<String>,
-    ) -> Result<()> 
-    where C: Acquire<'c, Database = Postgres> {
+    ) -> Result<()>
+    where
+        C: Acquire<'c, Database = Postgres>,
+    {
         let mut conn = conn.acquire().await?;
         for func_path in func_paths {
             let file_contents = std::fs::read_to_string(func_path)?;

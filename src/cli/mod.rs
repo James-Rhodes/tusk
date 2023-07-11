@@ -32,7 +32,7 @@ pub enum Action {
 }
 
 impl Action {
-    pub async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&mut self) -> anyhow::Result<()> {
         match self {
             Self::Init(init) => init.execute().await?,
             Self::Pull(pull) => pull.execute().await?,

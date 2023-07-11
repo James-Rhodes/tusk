@@ -6,7 +6,7 @@ use std::{collections::HashMap, path::Path};
 use anyhow::{bail, Context, Result};
 use clap::Args;
 use colored::Colorize;
-use sqlx::{Postgres, Acquire};
+use sqlx::{Acquire, Postgres};
 
 use crate::{
     actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::test_runner::TestRunner},
@@ -22,7 +22,7 @@ pub struct TestStats {
     pub num_failed: u32,
 }
 
-impl std::ops::AddAssign for TestStats{
+impl std::ops::AddAssign for TestStats {
     fn add_assign(&mut self, rhs: Self) {
         self.num_passed += rhs.num_passed;
         self.num_failed += rhs.num_failed;
@@ -89,9 +89,7 @@ impl UnitTest {
 
     // Get all locally defined functions and their unit test paths. First element of tuple is name
     // of the function second is a map from the name to a vector of associated paths
-    fn get_func_unit_test_paths(
-        schema: &str,
-    ) -> Result<(Vec<String>, HashMap<String, Vec<String>>)> {
+    fn get_func_unit_test_paths(schema: &str) -> Result<HashMap<String, Vec<String>>> {
         let mut unit_test_paths: HashMap<String, Vec<String>> = HashMap::new();
 
         let dir_walker =
@@ -120,14 +118,13 @@ impl UnitTest {
             }
         }
 
-        return Ok((
-            unit_test_paths.keys().map(|val| val.to_string()).collect(),
-            unit_test_paths,
-        ));
+        Ok(unit_test_paths)
     }
 
-    async fn run_function_unit_test<'a, C>(conn: C, file_paths: &Vec<String>) -> Result<TestStats> 
-    where C: Acquire<'a, Database = Postgres> {
+    async fn run_function_unit_test<'a, C>(conn: C, file_paths: &Vec<String>) -> Result<TestStats>
+    where
+        C: Acquire<'a, Database = Postgres>,
+    {
         let mut conn = conn.acquire().await?;
 
         let mut test_stats = TestStats::default();
@@ -165,9 +162,14 @@ impl UnitTest {
         Ok(test_stats)
     }
 
-    pub async fn run_unit_tests<'c, C>(conn: C, functions: &Vec<String>, run_all: bool) -> Result<TestStats> 
-    where C: Acquire<'c, Database = Postgres> {
-
+    pub async fn run_unit_tests<'c, C>(
+        conn: C,
+        functions: &[String],
+        run_all: bool,
+    ) -> Result<TestStats>
+    where
+        C: Acquire<'c, Database = Postgres>,
+    {
         let mut conn = conn.acquire().await?;
         let mut total_stats = TestStats::default();
 
@@ -176,36 +178,30 @@ impl UnitTest {
         println!("\nBeginning Unit Tests:");
 
         for schema in schemas {
-            let (funcs, unit_test_paths) = Self::get_func_unit_test_paths(&schema)?;
+            let unit_test_paths = Self::get_func_unit_test_paths(&schema)?;
             let commented_funcs = get_commented_file_contents(&format!(
                 "./.tusk/config/schemas/{}/functions_to_include.conf",
                 schema
             ))?;
 
             // Remove all local funcs that are commented in the config file
-            let funcs = funcs
+            let unit_test_paths = unit_test_paths
                 .into_iter()
-                .filter(|item| !commented_funcs.contains(item))
-                .collect::<Vec<String>>();
+                .filter(|(item, _)| !commented_funcs.contains(item))
+                .collect::<HashMap<String, Vec<String>>>();
 
             if run_all {
                 // If all is specified then just run all the local functions unit tests that aren't commented
-                if !funcs.is_empty() {
+                if !unit_test_paths.is_empty() {
                     println!("\nBeginning {} schema unit tests:", schema);
                 }
-                for func in funcs.iter() {
-                    total_stats += Self::run_function_unit_test(
-                        &mut *conn,
-                        unit_test_paths
-                            .get(func)
-                            .context("The function path should match a function")?,
-                    )
-                    .await?;
+                for (_, test_paths) in unit_test_paths.iter() {
+                    total_stats += Self::run_function_unit_test(&mut *conn, test_paths).await?;
                 }
             } else {
                 // Get the functions that match the patterns passed in
                 let matching_local_funcs =
-                    get_matching_file_contents(funcs.iter(), &functions, Some(&schema))?;
+                    get_matching_file_contents(unit_test_paths.keys(), functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
                     println!("\nBeginning {} schema unit tests:", schema);
@@ -225,7 +221,6 @@ impl UnitTest {
         Ok(total_stats)
     }
     pub async fn execute(&self) -> anyhow::Result<()> {
-
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
 

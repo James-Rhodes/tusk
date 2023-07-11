@@ -5,7 +5,7 @@ use tusk::{cli, actions::init::USER_CONFIG_LOCATION};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args = cli::CliArgs::parse();
+    let mut args = cli::CliArgs::parse();
 
     if std::path::Path::new(USER_CONFIG_LOCATION).exists() {
         // If the user config file exists try read it and initailise the global variable

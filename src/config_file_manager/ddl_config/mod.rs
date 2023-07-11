@@ -9,8 +9,8 @@ pub struct ChangeStatus {
 }
 
 pub fn format_config_file(file_path: &str) -> Result<()> {
-    let local_file_contents = std::fs::read_to_string(file_path).unwrap_or_else(|_| panic!("The config file found at {} should exist",
-        file_path));
+    let local_file_contents = std::fs::read_to_string(file_path)
+        .unwrap_or_else(|_| panic!("The config file found at {} should exist", file_path));
 
     std::fs::write(
         file_path,
@@ -80,7 +80,7 @@ pub fn get_commented_file_contents(file_path: &str) -> Result<Vec<String>> {
     Ok(result)
 }
 
-pub fn get_matching_file_contents<'a, T, U, V>(
+pub fn get_matching_file_contents<T, U, V>(
     file_contents: T,
     patterns: &[V],
     schema_to_match: Option<&str>,
@@ -119,8 +119,8 @@ pub fn update_file_contents_from_db(
     // Benchmarks should be done at some stage to see if this can be improved by simply merging two
     // sorted vecs
 
-    let mut local_file_contents = std::fs::read_to_string(file_path).unwrap_or_else(|_| panic!("The config file found at {} should exist",
-        file_path));
+    let mut local_file_contents = std::fs::read_to_string(file_path)
+        .unwrap_or_else(|_| panic!("The config file found at {} should exist", file_path));
 
     let all_local_contents: HashSet<String> = local_file_contents
         .lines()

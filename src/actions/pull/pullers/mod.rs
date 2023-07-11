@@ -150,7 +150,7 @@ pub trait PgDumpPuller: Send + 'static {
         return Ok(());
     }
 
-    fn get_ddl_from_bytes(ddl_bytes: &Vec<u8>) -> Result<&str> {
+    fn get_ddl_from_bytes(ddl_bytes: &[u8]) -> Result<&str> {
         let ddl = std::str::from_utf8(ddl_bytes)?;
 
         if let Some(end_of_header_pos) = ddl.find("SET") {
