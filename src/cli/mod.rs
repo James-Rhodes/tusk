@@ -27,6 +27,7 @@ pub enum Action {
 
     /// Runs unit tests of each of the defined functions or procedures defined in the unit
     /// test .yaml files
+    #[clap(name = "test")]
     UnitTest(UnitTest),
 
 }
