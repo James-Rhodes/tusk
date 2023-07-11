@@ -42,12 +42,12 @@ pub trait SQLPuller {
         pool: &'conn PgPool,
         schema: &'conn str,
         config_file_path: &str,
-        items: &'conn Vec<String>,
+        items: &'conn [String],
     ) -> Result<RowStream<'conn>> {
         format_config_file(config_file_path)?;
 
         let approved_data_types = get_uncommented_file_contents(config_file_path)?;
-        let items = get_matching_file_contents(&approved_data_types, items, Some(schema))?
+        let items = get_matching_file_contents(approved_data_types.iter(), items, Some(schema))?
             .into_iter().cloned()
             .collect::<Vec<String>>();
 
@@ -114,13 +114,13 @@ pub trait PgDumpPuller: Send + 'static {
         ddl_parent_dir: &str,
         connection_string: &str,
         pg_bin_path: &str,
-        items: &Vec<String>,
+        items: &[String]
     ) -> Result<()> {
         format_config_file(config_file_path)?;
 
         let approved_tables = get_uncommented_file_contents(config_file_path)?;
 
-        let items = get_matching_file_contents(&approved_tables, items, Some(schema))?;
+        let items = get_matching_file_contents(approved_tables.iter(), items, Some(schema))?;
 
         if items.is_empty() {
             return Ok(());

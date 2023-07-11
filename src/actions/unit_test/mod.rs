@@ -205,7 +205,7 @@ impl UnitTest {
             } else {
                 // Get the functions that match the patterns passed in
                 let matching_local_funcs =
-                    get_matching_file_contents(&funcs, functions, Some(&schema))?;
+                    get_matching_file_contents(funcs.iter(), &functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
                     println!("\nBeginning {} schema unit tests:", schema);

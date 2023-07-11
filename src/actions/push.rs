@@ -8,9 +8,12 @@ use walkdir;
 
 use crate::{
     actions::{init::SCHEMA_CONFIG_LOCATION, unit_test::UnitTest},
-    config_file_manager::{ddl_config::{
-        get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
-    }, user_config::UserConfig},
+    config_file_manager::{
+        ddl_config::{
+            get_commented_file_contents, get_matching_file_contents, get_uncommented_file_contents,
+        },
+        user_config::UserConfig,
+    },
     db_manager,
 };
 
@@ -29,30 +32,28 @@ pub struct Push {
 
     /// Force unit tests to be run, rolling back the push of functions if any unit tests fail
     #[arg(long)]
-    #[clap(conflicts_with="no_test")]
+    #[clap(conflicts_with = "no_test")]
     test: bool,
 
     /// Don't run unit tests after the pushing of functions
     #[arg(long)]
-    #[clap(conflicts_with="test")]
+    #[clap(conflicts_with = "test")]
     no_test: bool,
 }
 
 impl Push {
     // Get all locally defined functions within the directory schema_dir
-    fn get_local_funcs(&self, schema: &str) -> Result<(Vec<String>, HashMap<String, Vec<String>>)> {
-
+    fn get_local_funcs(&self, schema: &str) -> Result<HashMap<String, Vec<String>>> {
         let mut func_paths: HashMap<String, Vec<String>> = HashMap::new();
 
         let function_dir = &format!("./schemas/{}/functions", schema);
         let function_dir = std::path::Path::new(function_dir);
 
         if !function_dir.exists() {
-            return Ok((vec![], HashMap::new()));
+            return Ok(HashMap::new());
         }
 
-        let dir_walker =
-            walkdir::WalkDir::new(function_dir).max_depth(2);
+        let dir_walker = walkdir::WalkDir::new(function_dir).max_depth(2);
         for dir in dir_walker.into_iter() {
             let dir = dir?;
             let file_name = dir
@@ -118,8 +119,6 @@ impl Push {
     }
 
     pub async fn execute(&self) -> anyhow::Result<()> {
-        // TODO: Refactor this to run all of the pushing within a transaction so it can be rolled
-        // back
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
         let mut transaction = pool.begin().await?;
@@ -129,37 +128,35 @@ impl Push {
         println!("\nBeginning Push:");
 
         for schema in schemas {
-            let (local_funcs, local_func_paths) = self.get_local_funcs(&schema)?;
+            let local_func_paths = self.get_local_funcs(&schema)?;
             let commented_funcs = get_commented_file_contents(&format!(
                 "./.tusk/config/schemas/{}/functions_to_include.conf",
                 schema
             ))?;
 
             // Remove all local funcs that are commented in the config file
-            let local_funcs = local_funcs
+            let local_func_paths = local_func_paths
                 .into_iter()
-                .filter(|item| !commented_funcs.contains(item))
-                .collect::<Vec<String>>();
+                .filter(|(key, _)| !commented_funcs.contains(key))
+                .collect::<HashMap<String, Vec<String>>>();
 
             if self.all {
                 // If all is specified then just pull all the local functions that aren't commented
-                if !local_funcs.is_empty() {
+                if !local_func_paths.is_empty() {
                     println!("\nBeginning {} schema push:", schema);
                 }
-                for func in local_funcs.iter() {
+                for (func_name, func_paths) in local_func_paths.iter() {
                     self.push_func(
                         &mut *transaction,
-                        func,
-                        local_func_paths
-                            .get(func)
-                            .expect("The function path should match a function"),
+                        func_name,
+                        func_paths
                     )
                     .await?;
                 }
             } else {
                 // Get the functions that match the patterns passed in
                 let matching_local_funcs =
-                get_matching_file_contents(&local_funcs, &self.functions, Some(&schema))?;
+                    get_matching_file_contents(local_func_paths.keys(), &self.functions, Some(&schema))?;
 
                 if !matching_local_funcs.is_empty() {
                     println!("\nBeginning {} schema push:", schema);
@@ -181,7 +178,8 @@ impl Push {
 
         if should_unit_test && !self.no_test {
             // Run the unit tests
-            let test_results = UnitTest::run_unit_tests(&mut *transaction, &self.functions, self.all).await?;
+            let test_results =
+                UnitTest::run_unit_tests(&mut *transaction, &self.functions, self.all).await?;
             if test_results.num_failed != 0 {
                 println!("{}: Due to unit test failure, all functions have been rolled back to their original state.", "Error".red());
                 transaction.rollback().await?;
