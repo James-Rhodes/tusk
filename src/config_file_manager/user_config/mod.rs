@@ -17,12 +17,14 @@ pub struct FetchOptions {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PullOptions{
     pub clean_ddl_before_pulling: bool,
-    pub pg_dump_additional_args: Vec<String>
+    pub pg_dump_additional_args: Vec<String>,
+    pub confirm_before_pull: bool
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PushOptions{
-    pub test_after_push: bool
+    pub test_after_push: bool,
+    pub confirm_before_push: bool
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -67,11 +69,13 @@ fetch_options:
 
 pull_options:
     clean_ddl_before_pulling: true
+    confirm_before_pull: true # Require confirmation of what ddl will be pulled before commencing pulling 
     pg_dump_additional_args:
       - "--no-privileges"
       - "--no-tablespaces"
 push_options:
     test_after_push: true
+    confirm_before_push: true # Require confirmation of what functions will be pushed before commencing pushing 
         "#;
 
 
@@ -91,10 +95,12 @@ push_options:
             },
             pull_options: PullOptions{
                 clean_ddl_before_pulling: true,
+                confirm_before_pull: true,
                 pg_dump_additional_args: vec!["--no-privileges".to_string(), "--no-tablespaces".to_string()],
             },
             push_options: PushOptions{
-                test_after_push: true
+                test_after_push: true,
+                confirm_before_push: true,
             }
         };
 
