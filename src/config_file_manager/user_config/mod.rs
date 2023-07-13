@@ -49,10 +49,10 @@ impl UserConfig{
     }
 
     pub fn user_confirmed<T: std::fmt::Display + AsRef<str>>(items: &[T]) -> Result<bool> 
-    where T: std::fmt::Display + AsRef<str> + colored::Colorize + Clone {
+    where T: std::fmt::Display + AsRef<str> { 
 
         for item in items.iter() {
-            println!("\t{}", item.clone().magenta());
+            println!("\t{}", item.as_ref().magenta());
         }
 
         for _ in 0..3 {
