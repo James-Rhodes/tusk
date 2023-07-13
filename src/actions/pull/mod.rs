@@ -240,7 +240,7 @@ impl Pull {
                 // match
                 let approved_items = get_uncommented_file_contents(config_file_path)?;
                 let items =
-                    get_matching_file_contents(approved_items.iter(), &items, Some(schema_name))?
+                    get_matching_file_contents(approved_items.iter(), items, Some(schema_name))?
                         .into_iter()
                         .cloned()
                         .collect::<Vec<String>>();

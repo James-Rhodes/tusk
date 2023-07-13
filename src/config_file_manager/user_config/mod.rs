@@ -80,7 +80,7 @@ impl UserConfig {
             }
         }
 
-        return Ok(false);
+        Ok(false)
     }
 }
 
