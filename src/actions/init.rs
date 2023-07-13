@@ -19,7 +19,20 @@ impl Init {
         if !std::path::Path::new(ENV_LOCATION).exists() {
             std::fs::write(
                 ENV_LOCATION,
-                "DB_USER=****\nDB_PASSWORD=****\nDB_HOST=****\nDB_PORT=****\nDB_NAME=****\n\n#USE_SSH=FALSE\nSSH_HOST=****\nSSH_USER=****\nSSH_LOCAL_BIND_PORT=****\n\n#PG_BIN_PATH=****",
+                r#"
+DB_USER=****
+DB_PASSWORD=****
+DB_HOST=****
+DB_PORT=****
+DB_NAME=****
+
+#USE_SSH=FALSE
+SSH_HOST=****
+SSH_USER=****
+SSH_LOCAL_BIND_PORT=****
+#SSH_PASSWORD=**** # Use at your own risk, if not provided, a prompt will ask for the password
+
+#PG_BIN_PATH=****"#,
             )?;
             println!("\tCreated file: {}", ENV_LOCATION.bold());
         }

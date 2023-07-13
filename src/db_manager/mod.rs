@@ -20,6 +20,7 @@ impl SSHConnection {
         user: String,
         local_bind_port: String,
         db_port: String,
+        ssh_password: Option<String>,
     ) -> Self {
         // Perform the SSH process call
 
@@ -33,12 +34,27 @@ impl SSHConnection {
             .arg("exit")
             .arg(format!("{}@{}", user, ssh_host))
             .output()
-            .unwrap_or_else(|_| panic!("Failed to close any ports currently on backup-socket to {}@{}",
-                user, ssh_host));
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Failed to close any ports currently on backup-socket to {}@{}",
+                    user, ssh_host
+                )
+            });
 
         // Forward the port
         println!("Forwarding the port");
-        std::process::Command::new("ssh")
+        if let Some(ssh_password) = ssh_password {
+            // use pexpect to automatically pass the ssh password
+            Self::get_ssh_with_password(&db_host, &ssh_host, &user, &local_bind_port, &db_port, &ssh_password)
+            .unwrap_or_else(|error| panic!(r#"
+Failed to forward port the local port {} to port {} of ip address {} for the given username {} and the password provided in .env
+returned the error:
+{}
+"#, local_bind_port, db_port, ssh_host, user, error));
+        } else {
+            //
+            // Spawn the process which asks for the users password
+            std::process::Command::new("ssh")
             .arg("-M")
             .arg("-S")
             .arg("backup-socket")
@@ -51,6 +67,7 @@ impl SSHConnection {
             .arg(format!("{}@{}", user, ssh_host))
             .output()
             .unwrap_or_else(|_| panic!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_bind_port, db_port, ssh_host, user));
+        }
 
         SSHConnection {
             ssh_host,
@@ -58,6 +75,29 @@ impl SSHConnection {
             _local_bind_port: local_bind_port,
             _db_port: db_port,
         }
+    }
+
+    fn get_ssh_with_password(
+        db_host: &str,
+        ssh_host: &str,
+        user: &str,
+        local_bind_port: &str,
+        db_port: &str,
+        ssh_password: &str,
+    ) -> Result<()> {
+        use rexpect::spawn;
+
+        let command = format!(
+            "ssh -M -S backup-socket -fNT -L {}:{}:{} {}@{}",
+            local_bind_port, db_host, db_port, user, ssh_host
+        );
+        let mut p = spawn(&command, Some(30000)).context("Failed to spawn pexpect process")?; // 30 second timeout
+
+        p.exp_string("password").context("Did not receive the string password from the ssh process")?;
+        p.send_line(&ssh_password).context("Failed to send password to pexpect")?;
+        p.exp_eof().context("Password failed or the server did not respond with eof")?;
+
+        Ok(())
     }
 }
 
@@ -72,8 +112,12 @@ impl Drop for SSHConnection {
             .arg("exit")
             .arg(format!("{}@{}", self.user, self.ssh_host))
             .output()
-            .unwrap_or_else(|_| panic!("Failed to close any ports currently on backup-socket to {}@{}",
-                self.user, self.ssh_host));
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Failed to close any ports currently on backup-socket to {}@{}",
+                    self.user, self.ssh_host
+                )
+            });
     }
 }
 
@@ -90,7 +134,7 @@ pub struct DbConnection {
     pool: PgPool,
     connection_string: String,
     _ssh_connection: Option<SSHConnection>,
-    pg_bin_path: String
+    pg_bin_path: String,
 }
 
 impl DbConnection {
@@ -107,10 +151,12 @@ impl DbConnection {
             _env_vars.db_name
         );
 
+        println!("Here");
         let pool = PgPoolOptions::new()
             .max_connections(MAX_DB_CONNECTIONS)
             .connect(&connection_string)
             .await?;
+        println!("Not Here");
 
         Ok(DbConnection {
             _env_vars,
@@ -134,7 +180,6 @@ impl DbConnection {
     }
 
     fn get_db_env_vars() -> Result<(DbEnvVars, Option<SSHConnection>)> {
-        // TODO: Add context to all of the below errors so that they make more sense for users
         dotenvy::from_filename("./.tusk/.env")?;
 
         let db_user = dotenvy::var("DB_USER").context("Required environment variable DB_USER is not set in ./.tusk/.env please set this to continue")?;
@@ -147,6 +192,7 @@ impl DbConnection {
         let ssh_host = dotenvy::var("SSH_HOST");
         let ssh_user = dotenvy::var("SSH_USER");
         let ssh_local_bind_port = dotenvy::var("SSH_LOCAL_BIND_PORT");
+        let ssh_password = dotenvy::var("SSH_PASSWORD").ok();
 
         let ssh_connection: Option<SSHConnection> = if let Ok(use_ssh) = use_ssh {
             if use_ssh == "TRUE" {
@@ -159,7 +205,8 @@ impl DbConnection {
                     ssh_host.context("Required environment variable SSH_HOST is not set in ./.tusk/.env please set this to continue")?,
                     ssh_user.context("Required environment variable SSH_USER is not set in ./.tusk/.env please set this to continue")?,
                     db_port.clone(),
-                    remote_db_port
+                    remote_db_port,
+                    ssh_password
                 ))
             } else {
                 None
