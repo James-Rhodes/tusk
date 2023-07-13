@@ -1,5 +1,5 @@
 pub mod pullers;
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 use futures::TryStreamExt;
@@ -7,7 +7,12 @@ use sqlx::PgPool;
 use walkdir::WalkDir;
 
 use crate::{
-    config_file_manager::{ddl_config::get_uncommented_file_contents, user_config::UserConfig},
+    config_file_manager::{
+        ddl_config::{
+            format_config_file, get_matching_file_contents, get_uncommented_file_contents,
+        },
+        user_config::UserConfig,
+    },
     db_manager,
 };
 
@@ -63,85 +68,6 @@ pub struct Pull {
 }
 
 impl Pull {
-    async fn pull_all<T: pullers::SQLPuller>(
-        pool: &PgPool,
-        schema_name: &str,
-        config_file_path: &str,
-    ) -> Result<()> {
-        let mut all_ddl = T::get_all(pool, schema_name, config_file_path)?;
-
-        while let Some(ddl) = all_ddl.try_next().await? {
-            // TODO: Make this async as well.
-            let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
-            if ddl.definition.is_empty() {
-                println!(
-                    "\t{} ({}): Does not exist within the database",
-                    "Warning".yellow(),
-                    file_path
-                );
-                continue;
-            }
-            let parent_dir =
-                std::path::Path::new(&file_path)
-                    .parent()
-                    .ok_or(anyhow::Error::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "The directory {} is invalid for writing files to...",
-                            file_path
-                        ),
-                    )))?;
-
-            if !parent_dir.exists() {
-                std::fs::create_dir_all(parent_dir)?;
-            }
-
-            println!("\tPulling {}", file_path.magenta());
-            std::fs::write(file_path, ddl.definition)?;
-        }
-
-        Ok(())
-    }
-    async fn pull_some<T: pullers::SQLPuller>(
-        pool: &PgPool,
-        schema_name: &str,
-        config_file_path: &str,
-        items: &[String],
-    ) -> Result<()> {
-        let mut all_ddl = T::get(pool, schema_name, config_file_path, items)?;
-
-        while let Some(ddl) = all_ddl.try_next().await? {
-            let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
-            if ddl.definition.is_empty() {
-                println!(
-                    "\t{} ({}): Does not exist within the database",
-                    "Warning".yellow(),
-                    file_path
-                );
-                continue;
-            }
-            let parent_dir =
-                std::path::Path::new(&file_path)
-                    .parent()
-                    .ok_or(anyhow::Error::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!(
-                            "The directory {} is invalid for writing files to...",
-                            file_path
-                        ),
-                    )))?;
-
-            if !parent_dir.exists() {
-                std::fs::create_dir_all(parent_dir)?;
-            }
-
-            println!("\tPulling {}", file_path.magenta());
-            std::fs::write(file_path, ddl.definition)?;
-        }
-
-        Ok(())
-    }
-
     async fn pull_sql<T: pullers::SQLPuller>(
         &self,
         pool: &PgPool,
@@ -150,32 +76,42 @@ impl Pull {
         ddl_parent_dir: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
-        if self.all {
-            // we want to pull everything if self.all is true
+        let items_to_pull =
+            self.get_items_to_pull(schema_name, config_file_path, ddl_parent_dir, input_items)?;
 
-            if self.clean_before_pull {
-                // Remove the directory before repopulating
-                Self::clean_ddl_dir(ddl_parent_dir)?;
-            }
+        if let Some(items_to_pull) = items_to_pull {
+            let mut all_ddl = T::get(pool, schema_name, &items_to_pull)?;
 
-            Self::pull_all::<T>(pool, schema_name, config_file_path).await?;
-        }
+            while let Some(ddl) = all_ddl.try_next().await? {
+                let file_path = format!("./schemas/{}/{}.sql", schema_name, ddl.file_path);
+                if ddl.definition.is_empty() {
+                    println!(
+                        "\t{} ({}): Does not exist within the database",
+                        "Warning".yellow(),
+                        file_path
+                    );
+                    continue;
+                }
+                let parent_dir =
+                    std::path::Path::new(&file_path)
+                        .parent()
+                        .ok_or(anyhow::Error::new(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!(
+                                "The directory {} is invalid for writing files to...",
+                                file_path
+                            ),
+                        )))?;
 
-        if let Some(input_items) = input_items {
-            if input_items.is_empty() {
-                // Run a pull on all of the items
-
-                if self.clean_before_pull {
-                    // Remove the directory before repopulating
-                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                if !parent_dir.exists() {
+                    std::fs::create_dir_all(parent_dir)?;
                 }
 
-                Self::pull_all::<T>(pool, schema_name, config_file_path).await?;
-            } else {
-                // Run a pull on the items in input_items
-                Self::pull_some::<T>(pool, schema_name, config_file_path, input_items).await?;
+                println!("\tPulling {}", file_path.magenta());
+                std::fs::write(file_path, ddl.definition)?;
             }
         }
+
         Ok(())
     }
 
@@ -186,53 +122,18 @@ impl Pull {
         ddl_parent_dir: &str,
         input_items: &Option<Vec<String>>,
     ) -> Result<()> {
-        if self.all {
-            // we want to pull everything if self.all is true
+        let items_to_pull =
+            self.get_items_to_pull(schema_name, config_file_path, ddl_parent_dir, input_items)?;
 
-            if self.clean_before_pull {
-                // Remove the directory before repopulating
-                Self::clean_ddl_dir(ddl_parent_dir)?;
-            }
-
-            T::get_all(
+        if let Some(items_to_pull) = items_to_pull {
+            T::get(
                 schema_name,
-                config_file_path,
                 ddl_parent_dir,
                 &self.connection_string,
                 &self.pg_bin_path,
+                &items_to_pull,
             )
             .await?;
-        }
-
-        if let Some(input_items) = input_items {
-            if input_items.is_empty() {
-                // Run a pull on all of the items
-
-                if self.clean_before_pull {
-                    // Remove the directory before repopulating
-                    Self::clean_ddl_dir(ddl_parent_dir)?;
-                }
-
-                T::get_all(
-                    schema_name,
-                    config_file_path,
-                    ddl_parent_dir,
-                    &self.connection_string,
-                    &self.pg_bin_path,
-                )
-                .await?;
-            } else {
-                // Run a pull on the items in input_items
-                T::get(
-                    schema_name,
-                    config_file_path,
-                    ddl_parent_dir,
-                    &self.connection_string,
-                    &self.pg_bin_path,
-                    input_items,
-                )
-                .await?;
-            }
         }
         Ok(())
     }
@@ -268,11 +169,76 @@ impl Pull {
 
             if !unit_test_path.exists() {
                 // Don't delete the directory if unit tests are defined within the directory
-                std::fs::remove_dir_all(unit_test_path.parent().context("This path must have a parent")?)?;
+                std::fs::remove_dir_all(
+                    unit_test_path
+                        .parent()
+                        .context("This path must have a parent")?,
+                )?;
             }
         }
 
         Ok(())
+    }
+
+    fn get_items_to_pull(
+        &self,
+        schema_name: &str,
+        config_file_path: &str,
+        ddl_parent_dir: &str,
+        input_items: &Option<Vec<String>>,
+    ) -> Result<Option<Vec<String>>> {
+        format_config_file(config_file_path)?;
+
+        match (self.all, input_items) {
+            (false, None) => Ok(None),
+            (true, _) => {
+                // Get all items
+                let items = get_uncommented_file_contents(config_file_path)?;
+
+                if !items.is_empty() && !UserConfig::user_confirmed(&items)? {
+                    anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
+                }
+
+                if self.clean_before_pull {
+                    // Remove the directory before repopulating
+                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                }
+
+                Ok(Some(items))
+            }
+            (false, Some(items)) if items.is_empty() => {
+                // Get all items
+                let items = get_uncommented_file_contents(config_file_path)?;
+
+                if !items.is_empty() && !UserConfig::user_confirmed(&items)? {
+                    anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
+                }
+
+                if self.clean_before_pull {
+                    // Remove the directory before repopulating
+                    Self::clean_ddl_dir(ddl_parent_dir)?;
+                }
+
+                Ok(Some(items))
+            }
+            (false, Some(items)) if !items.is_empty() => {
+                // The user specified some patterns to
+                // match
+                let approved_items = get_uncommented_file_contents(config_file_path)?;
+                let items =
+                    get_matching_file_contents(approved_items.iter(), &items, Some(schema_name))?
+                        .into_iter()
+                        .cloned()
+                        .collect::<Vec<String>>();
+
+                if !items.is_empty() && !UserConfig::user_confirmed(&items)? {
+                    anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
+                }
+
+                Ok(Some(items))
+            }
+            _ => unreachable!(),
+        }
     }
 
     async fn create_schema_def(schema: &str) -> Result<()> {
@@ -302,8 +268,8 @@ impl Pull {
         self.pg_bin_path = connection.get_pg_bin_path().to_owned();
 
         self.clean_before_pull = UserConfig::get_global()?
-        .pull_options
-        .clean_ddl_before_pulling;
+            .pull_options
+            .clean_ddl_before_pulling;
 
         println!("\nBeginning Pulling:");
 
