@@ -205,7 +205,7 @@ impl Pull {
 
                 if (self.user_config_confirm_before_pull || self.confirm)
                     && !items.is_empty()
-                    && !UserConfig::user_confirmed(&items)?
+                    && !UserConfig::user_confirmed(&schema_name, &items)?
                 {
                     anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
                 }
@@ -223,7 +223,7 @@ impl Pull {
 
                 if (self.user_config_confirm_before_pull || self.confirm)
                     && !items.is_empty()
-                    && !UserConfig::user_confirmed(&items)?
+                    && !UserConfig::user_confirmed(&schema_name, &items)?
                 {
                     anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
                 }
@@ -247,7 +247,7 @@ impl Pull {
 
                 if (self.user_config_confirm_before_pull || self.confirm)
                     && !items.is_empty()
-                    && !UserConfig::user_confirmed(&items)?
+                    && !UserConfig::user_confirmed(&schema_name, &items)?
                 {
                     anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
                 }

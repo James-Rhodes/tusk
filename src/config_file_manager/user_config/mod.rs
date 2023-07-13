@@ -48,11 +48,12 @@ impl UserConfig{
         return USER_CONFIG.get().context("User Config must be set before this variable can be used");
     }
 
-    pub fn user_confirmed<T: std::fmt::Display + AsRef<str>>(items: &[T]) -> Result<bool> 
+    pub fn user_confirmed<T: std::fmt::Display + AsRef<str>, U: std::fmt::Display + AsRef<str>>(schema_name: &U, items: &[T]) -> Result<bool> 
     where T: std::fmt::Display + AsRef<str> { 
 
+        println!("\nPreview:");
         for item in items.iter() {
-            println!("\t{}", item.as_ref().magenta());
+            println!("\t{}.{}", schema_name, item.as_ref().magenta());
         }
 
         for _ in 0..3 {
