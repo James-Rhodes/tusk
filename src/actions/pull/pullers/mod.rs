@@ -29,11 +29,15 @@ pub trait SQLPuller {
     ) -> Result<RowStream<'conn>> {
         format_config_file(config_file_path)?;
 
-        let approved_data_types = get_uncommented_file_contents(config_file_path)?;
+        let approved_items = get_uncommented_file_contents(config_file_path)?;
 
+        if !UserConfig::user_confirmed(&approved_items)? {
+            println!("We BAILED");
+
+        }
         return Ok(sqlx::query_as::<_, DDL>(Self::get_ddl_query())
             .bind(schema)
-            .bind(approved_data_types)
+            .bind(approved_items)
             .fetch(pool));
     }
 
@@ -46,8 +50,8 @@ pub trait SQLPuller {
     ) -> Result<RowStream<'conn>> {
         format_config_file(config_file_path)?;
 
-        let approved_data_types = get_uncommented_file_contents(config_file_path)?;
-        let items = get_matching_file_contents(approved_data_types.iter(), items, Some(schema))?
+        let approved_items = get_uncommented_file_contents(config_file_path)?;
+        let items = get_matching_file_contents(approved_items.iter(), items, Some(schema))?
             .into_iter().cloned()
             .collect::<Vec<String>>();
 

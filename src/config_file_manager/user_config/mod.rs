@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
+use colored::Colorize;
 
 
 static USER_CONFIG: OnceLock<UserConfig> = OnceLock::new();
@@ -45,6 +46,33 @@ impl UserConfig{
 
     pub fn get_global() -> Result<&'static UserConfig> {
         return USER_CONFIG.get().context("User Config must be set before this variable can be used");
+    }
+
+    pub fn user_confirmed<T: std::fmt::Display + AsRef<str>>(items: &[T]) -> Result<bool> 
+    where T: std::fmt::Display + AsRef<str> + colored::Colorize + Clone {
+
+        for item in items.iter() {
+            println!("\t{}", item.clone().magenta());
+        }
+
+        for _ in 0..3 {
+
+            let mut answer = String::new();
+
+            println!("Confirm? [y/Y, n/N]");
+            std::io::stdin().read_line(&mut answer)?;
+            answer = answer.trim().to_lowercase();
+
+            match answer.as_str() {
+                "y" => return Ok(true),
+                "n" => return Ok(false),
+                _ => {
+                    println!("Invalid answer...");
+                }
+            }
+        }
+
+        return Ok(false);
     }
 }
 
