@@ -57,6 +57,11 @@ pub struct Pull {
     #[arg(short, long)]
     all: bool,
 
+    /// Adding this flag will give a preview of what is going to be pulled and allow the user to accept or
+    /// deny the items to be pulled.
+    #[arg(long)]
+    confirm: bool,
+
     #[clap(skip)]
     pg_bin_path: String,
 
@@ -65,6 +70,9 @@ pub struct Pull {
 
     #[clap(skip)]
     clean_before_pull: bool,
+
+    #[clap(skip)]
+    user_config_confirm_before_pull: bool,
 }
 
 impl Pull {
@@ -195,7 +203,10 @@ impl Pull {
                 // Get all items
                 let items = get_uncommented_file_contents(config_file_path)?;
 
-                if !items.is_empty() && !UserConfig::user_confirmed(&items)? {
+                if (self.user_config_confirm_before_pull || self.confirm)
+                    && !items.is_empty()
+                    && !UserConfig::user_confirmed(&items)?
+                {
                     anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
                 }
 
@@ -210,7 +221,10 @@ impl Pull {
                 // Get all items
                 let items = get_uncommented_file_contents(config_file_path)?;
 
-                if !items.is_empty() && !UserConfig::user_confirmed(&items)? {
+                if (self.user_config_confirm_before_pull || self.confirm)
+                    && !items.is_empty()
+                    && !UserConfig::user_confirmed(&items)?
+                {
                     anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
                 }
 
@@ -231,7 +245,10 @@ impl Pull {
                         .cloned()
                         .collect::<Vec<String>>();
 
-                if !items.is_empty() && !UserConfig::user_confirmed(&items)? {
+                if (self.user_config_confirm_before_pull || self.confirm)
+                    && !items.is_empty()
+                    && !UserConfig::user_confirmed(&items)?
+                {
                     anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
                 }
 
@@ -270,6 +287,9 @@ impl Pull {
         self.clean_before_pull = UserConfig::get_global()?
             .pull_options
             .clean_ddl_before_pulling;
+
+        self.user_config_confirm_before_pull =
+            UserConfig::get_global()?.pull_options.confirm_before_pull;
 
         println!("\nBeginning Pulling:");
 
