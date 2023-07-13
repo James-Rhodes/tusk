@@ -39,6 +39,14 @@ pub struct Push {
     #[arg(long)]
     #[clap(conflicts_with = "test")]
     no_test: bool,
+
+    /// Adding this flag will give a preview of what is going to be pushed and allow the user to accept or
+    /// deny the items to be pushed.
+    #[arg(long)]
+    confirm: bool,
+
+    #[clap(skip)]
+    user_config_confirm_before_push: bool,
 }
 
 impl Push {
@@ -120,12 +128,15 @@ impl Push {
         Ok(())
     }
 
-    pub async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&mut self) -> anyhow::Result<()> {
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
         let mut transaction = pool.begin().await?;
 
         let schemas = get_uncommented_file_contents(SCHEMA_CONFIG_LOCATION)?;
+
+        self.user_config_confirm_before_push =
+            UserConfig::get_global()?.push_options.confirm_before_push;
 
         println!("\nBeginning Push:");
 
@@ -142,40 +153,39 @@ impl Push {
                 .filter(|(key, _)| !commented_funcs.contains(key))
                 .collect::<HashMap<String, Vec<String>>>();
 
-            if self.all {
-                // If all is specified then just pull all the local functions that aren't commented
-                if !local_func_paths.is_empty() {
-                    println!("\nBeginning {} schema push:", schema);
-                }
-                for (func_name, func_paths) in local_func_paths.iter() {
-                    self.push_func(
-                        &mut *transaction,
-                        func_name,
-                        func_paths
-                    )
-                    .await?;
-                }
-            } else {
-                // Get the functions that match the patterns passed in
-                let matching_local_funcs =
-                    get_matching_file_contents(local_func_paths.keys(), &self.functions, Some(&schema))?;
+            let function_path_map = match self.all {
+                true => local_func_paths,
+                false => {
+                    let matching_local_funcs = get_matching_file_contents(
+                        local_func_paths.keys(),
+                        &self.functions,
+                        Some(&schema),
+                    )?;
 
-                if !matching_local_funcs.is_empty() {
-                    println!("\nBeginning {} schema push:", schema);
+                    local_func_paths
+                        .clone()
+                        .into_iter()
+                        .filter(|(func_name, _)| matching_local_funcs.contains(&func_name))
+                        .collect()
                 }
+            };
 
-                for func in matching_local_funcs {
-                    self.push_func(
-                        &mut *transaction,
-                        func,
-                        local_func_paths
-                            .get(func)
-                            .expect("The function path should match a function"),
-                    )
+            if !function_path_map.is_empty() {
+                println!("\nBeginning {} schema push:", schema);
+            }
+
+            if (self.user_config_confirm_before_push || self.confirm)
+                && !function_path_map.is_empty()
+                && !UserConfig::user_confirmed(&schema, function_path_map.keys())?
+            {
+                anyhow::bail!("The items were rejected by the user. Please filter appropriately on the next run")
+            }
+            for (func_name, func_paths) in function_path_map.iter() {
+                self.push_func(&mut *transaction, func_name, func_paths)
                     .await?;
-                }
             }
         }
+
         let should_unit_test = self.test || UserConfig::get_global()?.push_options.test_after_push;
 
         if should_unit_test && !self.no_test {
