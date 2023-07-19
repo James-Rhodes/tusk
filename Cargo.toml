@@ -11,8 +11,8 @@ async-trait = "0.1.68"
 clap = { version = "4.2.1", features = ["derive"] }
 colored = "2.0.0"
 dotenvy = "0.15.6"
+expectrl = "0.7.1"
 futures = "0.3.27"
-rexpect = "0.5.0"
 serde = { version = "1.0.164", features = ["derive"] }
 serde_yaml = "0.9.21"
 sqlx = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres" ] }

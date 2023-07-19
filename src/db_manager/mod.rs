@@ -85,17 +85,17 @@ returned the error:
         db_port: &str,
         ssh_password: &str,
     ) -> Result<()> {
-        use rexpect::spawn;
+        use expectrl::spawn;
 
         let command = format!(
             "ssh -M -S backup-socket -fNT -L {}:{}:{} {}@{}",
             local_bind_port, db_host, db_port, user, ssh_host
         );
-        let mut p = spawn(&command, Some(30000)).context("Failed to spawn pexpect process")?; // 30 second timeout
+        let mut p = spawn(&command).context("Failed to spawn expect process")?; // 30 second timeout
 
-        p.exp_string("password").context("Did not receive the string password from the ssh process")?;
-        p.send_line(&ssh_password).context("Failed to send password to pexpect")?;
-        p.exp_eof().context("Password failed or the server did not respond with eof")?;
+        p.expect("password:").context("Did not receive the string password from the ssh process")?;
+        p.send_line(&ssh_password).context("Failed to send password to expect")?;
+        p.expect(expectrl::Eof).context("Password failed or the server did not respond with eof")?;
 
         Ok(())
     }
@@ -151,12 +151,10 @@ impl DbConnection {
             _env_vars.db_name
         );
 
-        println!("Here");
         let pool = PgPoolOptions::new()
             .max_connections(MAX_DB_CONNECTIONS)
             .connect(&connection_string)
             .await?;
-        println!("Not Here");
 
         Ok(DbConnection {
             _env_vars,
