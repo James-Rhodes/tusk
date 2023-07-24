@@ -8,9 +8,7 @@ use std::pin::Pin;
 
 use crate::{
     actions::pull::DDL,
-    config_file_manager::{ddl_config::{
-        format_config_file, get_matching_file_contents, get_uncommented_file_contents,
-    }, user_config::UserConfig},
+    config_file_manager::user_config::UserConfig,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -21,46 +19,22 @@ use sqlx::PgPool;
 pub type RowStream<'conn> = Pin<Box<dyn Stream<Item = Result<DDL, sqlx::Error>> + Send + 'conn>>;
 
 pub trait SQLPuller {
-    // This returns all the DDL from a postgres query as a stream for writing manually to a file
-    fn get_all<'conn>(
-        pool: &'conn PgPool,
-        schema: &'conn str,
-        config_file_path: &str,
-    ) -> Result<RowStream<'conn>> {
-        format_config_file(config_file_path)?;
-
-        let approved_data_types = get_uncommented_file_contents(config_file_path)?;
-
-        return Ok(sqlx::query_as::<_, DDL>(Self::get_ddl_query())
-            .bind(schema)
-            .bind(approved_data_types)
-            .fetch(pool));
-    }
+    // This is the only function that is required to be implemented. It must return the query that
+    // will get the ddl for the given type. ie function etc. Use $1 to represent the schema and $2
+    // to represent the items that you are getting the ddl for. These are bound automatically
+    fn get_ddl_query() -> &'static str;
 
     // This returns the DDL from a Postgres query as a stream for writing manually to a file
     fn get<'conn>(
         pool: &'conn PgPool,
         schema: &'conn str,
-        config_file_path: &str,
         items: &'conn [String],
     ) -> Result<RowStream<'conn>> {
-        format_config_file(config_file_path)?;
-
-        let approved_data_types = get_uncommented_file_contents(config_file_path)?;
-        let items = get_matching_file_contents(approved_data_types.iter(), items, Some(schema))?
-            .into_iter().cloned()
-            .collect::<Vec<String>>();
-
-        return Ok(sqlx::query_as::<_, DDL>(Self::get_ddl_query())
+        Ok(sqlx::query_as::<_, DDL>(Self::get_ddl_query())
             .bind(schema)
             .bind(items)
-            .fetch(pool));
+            .fetch(pool))
     }
-
-    // This is the only function that is required to be implemented. It must return the query that
-    // will get the ddl for the given type. ie function etc. Use $1 to represent the schema and $2
-    // to represent the items that you are getting the ddl for. These are bound automatically
-    fn get_ddl_query() -> &'static str;
 }
 
 #[async_trait]
@@ -69,59 +43,14 @@ pub trait PgDumpPuller: Send + 'static {
     /// arguments required for pg_dump
     fn pg_dump_arg_gen(schema: &str, item_name: &str) -> Vec<String>;
 
-    async fn get_all(
-        schema: &str,
-        config_file_path: &str,
-        ddl_parent_dir: &str,
-        connection_string: &str,
-        pg_bin_path: &str,
-    ) -> Result<()> {
-        format_config_file(config_file_path)?;
-
-        let approved_items = get_uncommented_file_contents(config_file_path)?;
-
-        if approved_items.is_empty() {
-            return Ok(());
-        }
-
-        if !std::path::Path::new(&ddl_parent_dir).exists() {
-            std::fs::create_dir_all(ddl_parent_dir)?;
-        }
-
-        let db_name_arg = format!("--dbname={}", connection_string);
-
-        let mut join_handles = Vec::with_capacity(approved_items.len());
-        for item in approved_items {
-            join_handles.push(tokio::spawn(Self::run_pg_dump(
-                schema.to_string(),
-                pg_bin_path.to_string(),
-                db_name_arg.clone(),
-                item.to_string(),
-                ddl_parent_dir.to_string(),
-            )));
-        }
-
-        for jh in join_handles {
-            jh.await??;
-        }
-        return Ok(());
-    }
-
-    // This one will write the ones in items to DDL files
+    // This gets all of the ddl for the input items
     async fn get(
         schema: &str,
-        config_file_path: &str,
         ddl_parent_dir: &str,
         connection_string: &str,
         pg_bin_path: &str,
-        items: &[String]
+        items: &[String],
     ) -> Result<()> {
-        format_config_file(config_file_path)?;
-
-        let approved_tables = get_uncommented_file_contents(config_file_path)?;
-
-        let items = get_matching_file_contents(approved_tables.iter(), items, Some(schema))?;
-
         if items.is_empty() {
             return Ok(());
         }
@@ -173,7 +102,10 @@ pub trait PgDumpPuller: Send + 'static {
         let ddl_args = Self::pg_dump_arg_gen(&schema, &item);
         args.extend(ddl_args.into_iter());
 
-        let user_args = UserConfig::get_global()?.pull_options.pg_dump_additional_args.clone();
+        let user_args = UserConfig::get_global()?
+            .pull_options
+            .pg_dump_additional_args
+            .clone();
         args.extend(user_args.into_iter());
 
         let command = tokio::process::Command::new(pg_bin_path)
@@ -184,7 +116,13 @@ pub trait PgDumpPuller: Send + 'static {
         let command_err = std::str::from_utf8(&command.stderr[..]).unwrap_or("");
         if !command_err.is_empty() {
             let command_err = command_err.trim_end().replace('\n', "\n\t\t");
-            println!("\t{} ({}/{}.sql): {}", "Warning".yellow(), ddl_parent_dir, item, command_err);
+            println!(
+                "\t{} ({}/{}.sql): {}",
+                "Warning".yellow(),
+                ddl_parent_dir,
+                item,
+                command_err
+            );
             return Ok(());
         }
         let command_out = command.stdout;

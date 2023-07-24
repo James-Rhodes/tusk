@@ -41,9 +41,12 @@ fetch_options:
 
 pull_options:
     clean_ddl_before_pulling: true # Delete files before repopulating with pull. Functions will only be deleted if there aren't unit tests defined for the function
+    confirm_before_pull: false # Require confirmation of what ddl will be pulled before commencing pulling 
     pg_dump_additional_args: # These are additional user args that can be added to the calls to pg_dump
+
 push_options:
     test_after_push: true # Run unit tests after pushing the functions. If ANY of the tests fail then all of the functions that were pushed will be rolled back.
+    confirm_before_push: false # Require confirmation of what functions will be pushed before commencing pushing 
                 "#,
             )?;
             println!("\tCreated file: {}", USER_CONFIG_LOCATION.bold());
