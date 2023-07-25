@@ -33,7 +33,7 @@ pub struct DDL {
 #[derive(Debug, Args)]
 pub struct Pull {
     /// Pull the specified function or functions that start with the input pattern.
-    #[arg(short,long, num_args(0..))]
+    #[arg(short,long, num_args(0..), required_unless_present_any(["table_ddl", "table_data", "data_types", "views", "all"]))]
     functions: Option<Vec<String>>,
 
     /// Pull the specified table ddl that starts with the input pattern.
@@ -54,7 +54,7 @@ pub struct Pull {
 
     /// Pull all of the DDL within the schemas that are uncommented in the schema config file found
     /// at ./.tusk/config/schemas_to_include.conf
-    #[arg(short, long)]
+    #[arg(short, long, exclusive(true))]
     all: bool,
 
     /// Adding this flag will give a preview of what is going to be pulled and allow the user to accept or
