@@ -27,7 +27,7 @@ pub struct Push {
     functions: Vec<String>,
 
     /// Push all of the functions from all schemas to the database
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with("functions"))]
     all: bool,
 
     /// Force unit tests to be run, rolling back the push of functions if any unit tests fail
