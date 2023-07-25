@@ -42,7 +42,7 @@ pub struct UnitTest {
     functions: Vec<String>,
 
     /// test all of the functions that specify unit tests from all schemas
-    #[arg(short, long)]
+    #[arg(short, long, exclusive(true))]
     all: bool,
 }
 
