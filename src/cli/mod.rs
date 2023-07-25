@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use crate::actions::{init::Init,pull::Pull, push::Push, fetch::Fetch, unit_test::UnitTest};
+use crate::actions::{init::Init,pull::Pull, push::Push, fetch::Fetch, unit_test::UnitTest, doc::Doc};
 
 #[derive(Debug, Parser)]
 #[clap(author, version, about)]
@@ -30,6 +30,9 @@ pub enum Action {
     #[clap(name = "test")]
     UnitTest(UnitTest),
 
+    /// Generate the docs for a given schemas functions
+    Doc(Doc)
+
 }
 
 impl Action {
@@ -39,7 +42,8 @@ impl Action {
             Self::Pull(pull) => pull.execute().await?,
             Self::Push(push) => push.execute().await?,
             Self::Fetch(fetch) => fetch.execute().await?,
-            Self::UnitTest(unit_test) => unit_test.execute().await?
+            Self::UnitTest(unit_test) => unit_test.execute().await?,
+            Action::Doc(doc) => doc.execute().await?,
         };
         Ok(())
     }
