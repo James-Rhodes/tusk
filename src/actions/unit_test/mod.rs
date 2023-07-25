@@ -36,7 +36,7 @@ pub struct UnitTest {
     /// Please note that this will run the functions in a transaction which will be rolled back at
     /// the completion of the unit tests. This does not guarentee no side effects if your function
     /// or procedure contains a COMMIT
-    #[clap(num_args = 0.., trailing_var_arg=true, index=1, required_unless_present="all")]
+    #[clap(num_args = 0.., trailing_var_arg=true, index=1, required_unless_present_any(["all", "example"]))]
     // This is how you allow it to be a
     // positional argument rather than a flagged argument
     functions: Vec<String>,
@@ -44,6 +44,11 @@ pub struct UnitTest {
     /// test all of the functions that specify unit tests from all schemas
     #[arg(short, long, exclusive(true))]
     all: bool,
+
+    /// Prints the contents of an example unit_test.yaml file. This is useful for getting started
+    /// when creating new unit tests. Simply pipe the output of this command into a file.
+    #[arg(long, exclusive(true))]
+    example: bool,
 }
 
 impl UnitTest {
@@ -220,7 +225,37 @@ impl UnitTest {
         }
         Ok(total_stats)
     }
+
+    fn print_example() {
+        const UNIT_TEST_EXAMPLE: &str = r#"
+- name: 'Example Multiple Rows and Columns in Output'
+  query: 'SELECT UNNEST(ARRAY[1,2]) num1, UNNEST(ARRAY[2,1]) num2;'
+  expected_output:
+  - num1: '1' # Row 1 Column 1
+    num2: '2' # Row 1 Column 2
+  - num1: '2' # Row 2 Column 1
+    num2: '1' # Row 2 Column 2
+- name: Example Multiple Rows and Columns in Side Effects
+  query: INSERT INTO public.tusk_test(name, num) VALUES ('George', 17), ('George', 17);
+  expected_output:
+  expected_side_effect:
+    table_query: SELECT name, num FROM public.tusk_test WHERE name = 'George';
+    expected_query_results:
+    - name: George # Row 1 Column 1
+      num: 17      # Row 1 Column 2
+    - name: George # Row 2 Column 1
+      num: 17      # Row 2 Column 2
+        "#;
+
+        println!("{}", UNIT_TEST_EXAMPLE);
+    }
+
     pub async fn execute(&self) -> anyhow::Result<()> {
+        if self.example {
+            Self::print_example();
+            return Ok(());
+        }
+
         let connection = db_manager::DbConnection::new().await?;
         let pool = connection.get_connection_pool();
 
