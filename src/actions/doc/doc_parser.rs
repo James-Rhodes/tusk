@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 pub struct FunctionDocInfo<'f> {
     pub function_name: &'f str,      // Get this from the file path
     pub function_full_name: &'f str, // Get this from declaration
+    pub schema: &'f str,
     pub description: &'f str,
     pub author: Option<&'f str>,                // @author Homer Simpson
     pub date: Option<&'f str>,                  // @date 01/02/1234
@@ -15,12 +16,13 @@ pub struct FunctionDocInfo<'f> {
 }
 
 impl<'f> FunctionDocInfo<'f> {
-    pub fn new(function_name: &'f str, file_contents: &'f str) -> Result<Self> {
+    pub fn new(schema: &'f str, function_name: &'f str, file_contents: &'f str) -> Result<Self> {
         let doc_comment = Self::find_doc_comment(file_contents)?;
 
         return Ok(Self {
             function_name,
             function_full_name: Self::get_full_name(function_name, file_contents)?,
+            schema,
             description: Self::get_description(doc_comment)?,
             author: Self::get_single_doc_tag(doc_comment, "@author"),
             date: Self::get_single_doc_tag(doc_comment, "@date"),
@@ -457,6 +459,7 @@ THIS IS JUST HERE FOR A BUFFER
         let expected_result = FunctionDocInfo {
             function_name: "concatenating",
             function_full_name: "concatenating(var1 text, var2 text)",
+            schema: "public",
             description: "This is the function description",
             author: Some("Homer Simpson"),
             date: Some("01/02/1234"),
@@ -479,6 +482,6 @@ THIS IS JUST HERE FOR A BUFFER
             }),
         };
 
-        assert_eq!(expected_result, FunctionDocInfo::new("concatenating", input).unwrap());
+        assert_eq!(expected_result, FunctionDocInfo::new("public", "concatenating", input).unwrap());
     }
 }
