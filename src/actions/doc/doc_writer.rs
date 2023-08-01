@@ -1,12 +1,12 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use tokio::io::AsyncWriteExt;
 
-use super::doc_parser::FunctionDocInfo;
+use super::doc_parser::FunctionDocParser;
 
-struct FunctionDocWriter {}
+pub struct FunctionDocWriter {}
 
 impl FunctionDocWriter {
-    async fn write_doc_to_file(function_info: &FunctionDocInfo<'_>) -> Result<()> {
+    pub async fn write_doc_to_file(function_info: &FunctionDocParser<'_>) -> Result<()> {
         // If the function docs already exist (in the case of an overload)
         // then just append to the fil;e rather than creating from scrathc
 
@@ -23,7 +23,7 @@ impl FunctionDocWriter {
             file_content.push_str(&format!("# {}\n", function_info.function_name));
         }
 
-        tokio::fs::create_dir_all(file_path).await?;
+        tokio::fs::create_dir_all(file_path.parent().context("This file should have a parent directory")?).await?;
         let mut file = tokio::fs::OpenOptions::new()
             .append(true)
             .create(true)
