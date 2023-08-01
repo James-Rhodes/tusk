@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 // This could easily be made a trait in the future so that different doc comment styles can be
 // adopted. Only supporting JS doc notation for now
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
-pub struct FunctionDocInfo<'f> {
+pub struct FunctionDocParser<'f> {
     pub function_name: &'f str,      // Get this from the file path
     pub function_full_name: &'f str, // Get this from declaration
     pub schema: &'f str,
@@ -15,11 +15,19 @@ pub struct FunctionDocInfo<'f> {
     pub returns: Option<FunctionReturn<'f>>,    // @return {TEXT} the description
 }
 
-impl<'f> FunctionDocInfo<'f> {
-    pub fn new(schema: &'f str, function_name: &'f str, file_contents: &'f str) -> Result<Self> {
-        let doc_comment = Self::find_doc_comment(file_contents)?;
+impl<'f> FunctionDocParser<'f> {
+    pub fn new(
+        schema: &'f str,
+        function_name: &'f str,
+        file_contents: &'f str,
+    ) -> Result<Option<Self>> {
+        
+        let doc_comment = match Self::find_doc_comment(file_contents)? {
+            Some(dc) => dc,
+            None => return Ok(None)
+        };
 
-        return Ok(Self {
+        return Ok(Some(Self {
             function_name,
             function_full_name: Self::get_full_name(function_name, file_contents)?,
             schema,
@@ -29,20 +37,22 @@ impl<'f> FunctionDocInfo<'f> {
             example: Self::get_single_doc_tag(doc_comment, "@example"),
             params: Self::get_params(doc_comment)?,
             returns: Self::get_return(doc_comment)?,
-        });
+        }));
     }
 
-    pub fn find_doc_comment(file_contents: &'f str) -> Result<&'f str> {
-        let doc_start_pos = file_contents
-            .find("/**")
-            .context("There are no doc comments within this file")?
-            + 3;
+    pub fn find_doc_comment(file_contents: &'f str) -> Result<Option<&'f str>> {
+        let doc_start_pos = match file_contents
+            .find("/**") {
+                Some(pos) => pos + 3,
+                None => return Ok(None)
+            };
+
         let doc_end_pos = file_contents[doc_start_pos..]
             .find("*/")
             .context("Invalid doc comments for function")?
             + doc_start_pos; // 2 so that the string includes */ at the end
 
-        Ok(file_contents[doc_start_pos..doc_end_pos].trim())
+        Ok(Some(file_contents[doc_start_pos..doc_end_pos].trim()))
     }
 
     pub fn get_full_name(function_name: &'f str, file_contents: &'f str) -> Result<&'f str> {
@@ -230,7 +240,7 @@ SOME STUFF THAT WONT BE IN THE RESULT
 
         assert_eq!(
             expected_result,
-            FunctionDocInfo::find_doc_comment(input).unwrap()
+            FunctionDocParser::find_doc_comment(input).unwrap().unwrap()
         );
     }
 
@@ -247,7 +257,7 @@ THIS IS JUST HERE FOR A BUFFER
 
         assert_eq!(
             "my_test_func(SOME INPUT STUFF)",
-            FunctionDocInfo::get_full_name("my_test_func", input).unwrap()
+            FunctionDocParser::get_full_name("my_test_func", input).unwrap()
         );
     }
 
@@ -262,7 +272,7 @@ THIS IS JUST HERE FOR A BUFFER
 
         assert_eq!(
             "This is the function description",
-            FunctionDocInfo::get_description(input).unwrap()
+            FunctionDocParser::get_description(input).unwrap()
         );
 
         let input = r#"
@@ -272,7 +282,7 @@ THIS IS JUST HERE FOR A BUFFER
 
         assert_eq!(
             "This is the function description",
-            FunctionDocInfo::get_description(input).unwrap()
+            FunctionDocParser::get_description(input).unwrap()
         );
     }
 
@@ -290,7 +300,7 @@ THIS IS JUST HERE FOR A BUFFER
                 return_type: "TEXT",
                 description: Some("this is a return description")
             }),
-            FunctionDocInfo::get_return(input).unwrap()
+            FunctionDocParser::get_return(input).unwrap()
         );
 
         let input = r#"This is the function description
@@ -305,7 +315,7 @@ THIS IS JUST HERE FOR A BUFFER
                 return_type: "TEXT",
                 description: None
             }),
-            FunctionDocInfo::get_return(input).unwrap()
+            FunctionDocParser::get_return(input).unwrap()
         );
 
         let input = r#"This is the function description
@@ -313,7 +323,7 @@ THIS IS JUST HERE FOR A BUFFER
 		@param {TEXT} var1 The first input param
 		@param {TEXT} var2 The second input param"#;
 
-        assert_eq!(None, FunctionDocInfo::get_return(input).unwrap());
+        assert_eq!(None, FunctionDocParser::get_return(input).unwrap());
 
         let input = r#"This is the function description
 
@@ -322,7 +332,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return {TEXT this is a return description"#;
 
-        assert_eq!(true, FunctionDocInfo::get_return(input).is_err());
+        assert_eq!(true, FunctionDocParser::get_return(input).is_err());
 
         let input = r#"This is the function description
 
@@ -331,7 +341,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return TEXT this is a return description"#;
 
-        assert_eq!(true, FunctionDocInfo::get_return(input).is_err());
+        assert_eq!(true, FunctionDocParser::get_return(input).is_err());
 
         let input = r#"This is the function description
 
@@ -340,7 +350,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return TEXT} this is a return description"#;
 
-        assert_eq!(true, FunctionDocInfo::get_return(input).is_err());
+        assert_eq!(true, FunctionDocParser::get_return(input).is_err());
     }
 
     #[test]
@@ -365,7 +375,7 @@ THIS IS JUST HERE FOR A BUFFER
                     description: Some("The second input param")
                 }
             ]),
-            FunctionDocInfo::get_params(input).unwrap()
+            FunctionDocParser::get_params(input).unwrap()
         );
 
         let input = r#"This is the function description
@@ -375,7 +385,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return {TEXT} this is a return description"#;
 
-        assert_eq!(true, FunctionDocInfo::get_params(input).is_err());
+        assert_eq!(true, FunctionDocParser::get_params(input).is_err());
 
         let input = r#"This is the function description
 
@@ -397,7 +407,7 @@ THIS IS JUST HERE FOR A BUFFER
                     description: None
                 }
             ]),
-            FunctionDocInfo::get_params(input).unwrap()
+            FunctionDocParser::get_params(input).unwrap()
         );
     }
 
@@ -413,7 +423,7 @@ THIS IS JUST HERE FOR A BUFFER
 
         assert_eq!(
             "Homer Simpson",
-            FunctionDocInfo::get_single_doc_tag(input, "@author").unwrap()
+            FunctionDocParser::get_single_doc_tag(input, "@author").unwrap()
         );
 
         let input = r#"This is the function description
@@ -426,7 +436,7 @@ THIS IS JUST HERE FOR A BUFFER
 
         assert_eq!(
             "Homer Simpson",
-            FunctionDocInfo::get_single_doc_tag(input, "@author").unwrap()
+            FunctionDocParser::get_single_doc_tag(input, "@author").unwrap()
         );
     }
 
@@ -456,7 +466,7 @@ THIS IS JUST HERE FOR A BUFFER
     	END
     $function$"#;
 
-        let expected_result = FunctionDocInfo {
+        let expected_result = FunctionDocParser {
             function_name: "concatenating",
             function_full_name: "concatenating(var1 text, var2 text)",
             schema: "public",
@@ -482,6 +492,9 @@ THIS IS JUST HERE FOR A BUFFER
             }),
         };
 
-        assert_eq!(expected_result, FunctionDocInfo::new("public", "concatenating", input).unwrap());
+        assert_eq!(
+            expected_result,
+            FunctionDocParser::new("public", "concatenating", input).unwrap().unwrap()
+        );
     }
 }
