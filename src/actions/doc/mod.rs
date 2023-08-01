@@ -5,6 +5,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use clap::Args;
+use colored::Colorize;
 
 use crate::config_file_manager::ddl_config::{
     get_matching_file_contents, get_uncommented_file_contents,
@@ -90,6 +91,13 @@ impl Doc {
         }
 
         for schema in &schemas {
+            let dir_path = format!("./documentation/{}",schema);
+            if std::path::Path::new(&dir_path).exists() {
+                // Only clean the directory if it exists already
+                std::fs::remove_dir_all(&dir_path)?;
+                println!("\t{}: Directory {}", "Cleaned".yellow(), dir_path.magenta());
+            }
+
             let function_files = Self::get_functions_from_schema(&schema)?;
             // This is where the multi threadedness will happen
             for ff in function_files {
