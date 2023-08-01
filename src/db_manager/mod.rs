@@ -1,6 +1,6 @@
 pub mod error_handling;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use dotenvy;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
@@ -20,7 +20,7 @@ impl SSHConnection {
         user: String,
         local_bind_port: String,
         db_port: String,
-    ) -> Self {
+    ) -> Result<Self> {
         // Perform the SSH process call
 
         // Exit any existing port forwards on the port
@@ -38,7 +38,7 @@ impl SSHConnection {
 
         // Forward the port
         println!("Forwarding the port");
-        std::process::Command::new("ssh")
+        let command = std::process::Command::new("ssh")
             .arg("-M")
             .arg("-S")
             .arg("backup-socket")
@@ -50,14 +50,19 @@ impl SSHConnection {
             ))
             .arg(format!("{}@{}", user, ssh_host))
             .output()
-            .unwrap_or_else(|_| panic!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_bind_port, db_port, ssh_host, user));
+            .context(format!("Failed to forward port the local port {} to port {} of ip address {} for username {} \n Please try again with new ports or try again later", local_bind_port, db_port, ssh_host, user))?;
+        let command_err = std::str::from_utf8(&command.stderr[..]).unwrap_or("").to_owned();
+        if !command_err.is_empty() {
+            bail!(command_err)
+        }
+ 
 
-        SSHConnection {
+        Ok(SSHConnection {
             ssh_host,
             user,
             _local_bind_port: local_bind_port,
             _db_port: db_port,
-        }
+        })
     }
 }
 
@@ -160,7 +165,7 @@ impl DbConnection {
                     ssh_user.context("Required environment variable SSH_USER is not set in ./.tusk/.env please set this to continue")?,
                     db_port.clone(),
                     remote_db_port
-                ))
+                )?)
             } else {
                 None
             }
