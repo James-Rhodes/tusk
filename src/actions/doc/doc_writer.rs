@@ -1,4 +1,5 @@
 use anyhow::{Result, Context};
+use colored::Colorize;
 use tokio::io::AsyncWriteExt;
 
 use super::doc_parser::FunctionDocParser;
@@ -20,7 +21,7 @@ impl FunctionDocWriter {
 
         if !file_path.exists() {
             // Append heading
-            file_content.push_str(&format!("# {}\n", function_info.function_name));
+            file_content.push_str(&format!("# {}\n\n", function_info.function_name));
         }
 
         tokio::fs::create_dir_all(file_path.parent().context("This file should have a parent directory")?).await?;
@@ -38,11 +39,11 @@ impl FunctionDocWriter {
         }
 
         if let Some(date) = function_info.date {
-            file_content.push_str(&format!("- Date: {}\n", date));
+            file_content.push_str(&format!("- Date: {}\n\n", date));
         }
 
         file_content.push_str(&format!(
-            "### Description \n\n{}",
+            "### Description \n{}\n\n",
             function_info.description
         ));
 
@@ -72,20 +73,20 @@ impl FunctionDocWriter {
             ));
 
             file_content.push_str(&format!(
-                "| {:-max_name_width$} | {:-max_param_type_width$} | {:-max_description_width$} |\n",
+                "| {:-<max_name_width$} | {:-<max_param_type_width$} | {:-<max_description_width$} |\n",
                 "", "", ""
             ));
 
             for param in params {
                 file_content.push_str(&format!(
-                    "| {:max_name_width$} | {:max_param_type_width$} | {:max_description_width$} |\n",
-                    param.name, param.param_type, param.description.unwrap_or_default().replace("\r\n", "").replace("\n", "").len()
+                    "| {:<max_name_width$} | {:<max_param_type_width$} | {:<max_description_width$} |\n",
+                    param.name, param.param_type, param.description.unwrap_or_default().replace("\r\n", "").replace("\n", "")
                 ));
             }
         }
 
         if let Some(return_val) = &function_info.returns {
-            file_content.push_str("### Return Type\n\n");
+            file_content.push_str("\n### Return Type\n\n");
 
             // Get the text width required
             let mut max_type_width = 4; // "Type".len()
@@ -107,19 +108,18 @@ impl FunctionDocWriter {
             ));
 
             file_content.push_str(&format!(
-                "| {:-max_type_width$} | {:-max_description_width$} |\n",
+                "| {:-<max_type_width$} | {:-<max_description_width$} |\n",
                 "", ""
             ));
 
             file_content.push_str(&format!(
-                "| {:max_type_width$} | {:max_description_width$} |\n",
+                "| {:max_type_width$} | {:max_description_width$} |\n\n",
                 return_val.return_type,
                 return_val
                     .description
                     .unwrap_or_default()
                     .replace("\r\n", "")
                     .replace("\n", "")
-                    .len()
             ));
         }
 
@@ -129,7 +129,7 @@ impl FunctionDocWriter {
         }
 
         file.write(file_content.as_bytes()).await?;
-
+        println!("\t{} Docs Generated", function_info.function_name.bold().magenta());
         Ok(())
     }
 }

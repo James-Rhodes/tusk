@@ -91,6 +91,8 @@ impl Doc {
         }
 
         for schema in &schemas {
+            println!("\nBeginning {} schema doc generation:", schema);
+
             let dir_path = format!("./documentation/{}",schema);
             if std::path::Path::new(&dir_path).exists() {
                 // Only clean the directory if it exists already
