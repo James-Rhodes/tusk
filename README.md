@@ -7,6 +7,8 @@ PL/pgSQL functions often are developed on the database making version control an
 
 Tusk provides unit testing functionality for PL/pgSQL functions all within transactions that are rolled back at the completion of the unit tests meaning any insert, delete or update statements are not saved in the DB. The unit tests can be run on the push of functions to the database and will be rolled back (reversing any changes to the functions) in the event that a unit test fails. 
 
+Tusk also provides a method of generating documentation for PL/pgSQL functions following a standard similar (but not as extensive) as JSDoc. The documentation is compiled from code comments into markdown files.
+
 ## What is Tusk Not?
 Tusk is not a drop in replacement for general database back up tools such as pg_dump. Tusk is not intended to be used to back up large amounts of data from the database but rather used to store the state of the database when functions were developed. So if something breaks it is easy to see why by also observing the state of the tables, data types etc. Table data can be stored but this is only intended to save small tables that might consist of config items or other information that might be vital to the running of the database functions.
 
@@ -257,3 +259,103 @@ tusk test public.% # Run all tests defined in the public schema
 
 tusk test public.testing # Run all tests in the public schema for functions whose name starts with the word testing
 ```
+
+### PL/pgSQL Documentation
+
+Tusk has built in documentation for PL/pgSQL functions. The documentation for these functions is generated from code comments within the functions themselves. This follows a standard very similar to JSDoc but definitely not as extensive. In order to generate the documentation for a function simply perform the following commands:
+
+```bash
+tusk doc -a # Generate the docs for every schema within the repo
+
+tusk doc public # Generate the docs for the public schema
+
+tusk doc pu # Generate the docs for any schemas that start with pu (ie. public)
+```
+
+To generate documentation for a function, the function must have comments of a very specific style. Firsly the doc comment must be wrapped in a block comment with the opening comment having two asterisk. For example:
+```sql
+/**
+
+
+*/
+```
+
+To get a complete picture of what should be contained within the doc comments we will write doc comments for our previous example function concat. The doc comments could look like this:
+
+```sql
+CREATE OR REPLACE FUNCTION public.concat(var1 text, var2 text)
+    RETURNS text
+    LANGUAGE plpgsql
+AS $function$
+BEGIN
+
+    /**
+        This is the function description. It is parsed as any free text found before the first @ symbol.
+
+        @author Homer Simpson
+        @date 01/02/1234
+        @example SELECT public.concat('Hello ', 'World');
+
+        @param {TEXT} var1 The first part of the output
+        @param {TEXT} var2 The second part of the output
+
+        @return {TEXT} var1 and var2 concatenated together
+    */
+
+    INSERT INTO public.people(name, age) VALUES ('Homer Simpson', 42);
+    return var1 || var2;
+END
+$function$
+```
+
+The information contained within the example above is the entirety of the JSDoc syntax that Tusk supports. That is Tusk supports a description and an author, date, example, param and return tags. 
+
+The param tag indicates a parameter that is passed into the function. The param tag should be formatted as follows:
+
+```sql
+/**
+  @param {THE PARAMETER TYPE} the_parameter_name The description of what the parameter does
+*/
+```
+
+The return tag is very similar to the param tag just without a parameter name argument.
+
+The example tag is intended to be used to show an example of how the function should be used. 
+
+The above example concat function will generate the following markdown: 
+
+```markdown
+
+# concat
+
+## concat(var1 text, var2 text)
+- Author: Homer Simpson
+- Date: 01/02/1234
+
+### Description 
+This is the function description. It is parsed as any free text found before the first @ symbol.
+
+### Arguments
+
+| Name | Type | Description                   |
+| ---- | ---- | ----------------------------- |
+| var1 | TEXT | The first part of the output  |
+| var2 | TEXT | The second part of the output |
+
+### Return Type
+
+| Type | Description                         |
+| ---- | ----------------------------------- |
+| TEXT | var1 and var2 concatenated together |
+
+### Example
+
+```sql
+SELECT public.concatenating('Hello ', 'World');
+```
+
+```
+
+
+
+
