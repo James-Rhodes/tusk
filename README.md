@@ -324,8 +324,7 @@ The example tag is intended to be used to show an example of how the function sh
 
 The above example concat function will generate the following markdown: 
 
-```markdown
-
+````markdown
 # concat
 
 ## concat(var1 text, var2 text)
@@ -354,7 +353,7 @@ This is the function description. It is parsed as any free text found before the
 SELECT public.concatenating('Hello ', 'World');
 ```
 
-```
+````
 
 
 
