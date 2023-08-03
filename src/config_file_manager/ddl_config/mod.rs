@@ -262,7 +262,7 @@ mod tests {
             assert_eq!(
                 get_matching_file_contents(
                     test_uncommented_contents.iter(),
-                    &vec![String::from("Test")],
+                    &[String::from("Test")],
                     None
                 )
                 .expect("This should never fail in this scenario"),
@@ -272,7 +272,7 @@ mod tests {
             assert_eq!(
                 get_matching_file_contents(
                     test_uncommented_contents.iter(),
-                    &vec![String::from("Test"), String::from("un")],
+                    &[String::from("Test"), String::from("un")],
                     None
                 )
                 .expect("This should never fail in this scenario"),
@@ -282,11 +282,9 @@ mod tests {
             assert_eq!(
                 get_matching_file_contents(
                     test_uncommented_contents.iter(),
-                    &vec![
-                        String::from("Test_O"),
+                    &[String::from("Test_O"),
                         String::from("schema_name.Test_T"),
-                        String::from("not_match.un")
-                    ],
+                        String::from("not_match.un")],
                     Some("schema_name")
                 )
                 .expect("This should never fail in this scenario"),
@@ -296,7 +294,7 @@ mod tests {
             assert_eq!(
                 get_matching_file_contents(
                     test_uncommented_contents.iter(),
-                    &vec![String::from("schema_name.%"),],
+                    &[String::from("schema_name.%")],
                     Some("schema_name")
                 )
                 .expect("This should never fail in this scenario"),

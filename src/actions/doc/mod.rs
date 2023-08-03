@@ -100,7 +100,7 @@ impl Doc {
                 println!("\t{}: Directory {}", "Cleaned".yellow(), dir_path.magenta());
             }
 
-            let function_files = Self::get_functions_from_schema(&schema)?;
+            let function_files = Self::get_functions_from_schema(schema)?;
             // This is where the multi threadedness will happen
             for ff in function_files {
 

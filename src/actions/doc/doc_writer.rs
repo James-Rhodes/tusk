@@ -62,7 +62,7 @@ impl FunctionDocWriter {
                         .description
                         .unwrap_or_default()
                         .replace("\r\n", "")
-                        .replace("\n", "")
+                        .replace('\n', "")
                         .len(),
                 );
             }
@@ -80,7 +80,7 @@ impl FunctionDocWriter {
             for param in params {
                 file_content.push_str(&format!(
                     "| {:<max_name_width$} | {:<max_param_type_width$} | {:<max_description_width$} |\n",
-                    param.name, param.param_type, param.description.unwrap_or_default().replace("\r\n", "").replace("\n", "")
+                    param.name, param.param_type, param.description.unwrap_or_default().replace("\r\n", "").replace('\n', "")
                 ));
             }
         }
@@ -98,7 +98,7 @@ impl FunctionDocWriter {
                     .description
                     .unwrap_or_default()
                     .replace("\r\n", "")
-                    .replace("\n", "")
+                    .replace('\n', "")
                     .len(),
             );
 
@@ -119,7 +119,7 @@ impl FunctionDocWriter {
                     .description
                     .unwrap_or_default()
                     .replace("\r\n", "")
-                    .replace("\n", "")
+                    .replace('\n', "")
             ));
         }
 
@@ -128,7 +128,7 @@ impl FunctionDocWriter {
             file_content.push_str(&format!("```sql\n{}\n```\n\n", example));
         }
 
-        file.write(file_content.as_bytes()).await?;
+        file.write_all(file_content.as_bytes()).await?;
         println!("\t{} Docs Generated", function_info.function_name.bold().magenta());
         Ok(())
     }

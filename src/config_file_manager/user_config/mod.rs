@@ -113,7 +113,7 @@ push_options:
     confirm_before_push: true # Require confirmation of what functions will be pushed before commencing pushing 
         "#;
 
-        let parsed: UserConfig = serde_yaml::from_str(&test_yaml).expect("This should never fail");
+        let parsed: UserConfig = serde_yaml::from_str(test_yaml).expect("This should never fail");
 
         let expected = UserConfig {
             fetch_options: FetchOptions {

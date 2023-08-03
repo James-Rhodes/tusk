@@ -61,7 +61,7 @@ impl<'f> FunctionDocParser<'f> {
             .context("The function name could not be found in the function declaration")?;
         let declaration_end = declaration_start
             + file_contents[declaration_start..]
-                .find(")")
+                .find(')')
                 .context("There was not a closing bracket found within the function")?
             + 1; // + 1 to include the bracket
 
@@ -69,19 +69,17 @@ impl<'f> FunctionDocParser<'f> {
     }
 
     pub fn get_description(doc_comment: &'f str) -> Result<&'f str> {
-        let description_end = doc_comment.find("@").unwrap_or_else(|| doc_comment.len());
+        let description_end = doc_comment.find('@').unwrap_or(doc_comment.len());
 
         return Ok(doc_comment[..description_end].trim());
     }
 
     pub fn get_single_doc_tag(doc_comment: &'f str, element_name: &str) -> Option<&'f str> {
         let start_element = doc_comment.find(element_name);
-        if start_element.is_none() {
-            return None;
-        }
+        start_element?;
         let start_element = start_element.unwrap() + element_name.len();
 
-        let end_element = match doc_comment[start_element..].find("@") {
+        let end_element = match doc_comment[start_element..].find('@') {
             Some(loc) => start_element + loc,
             None => doc_comment.len(),
         };
@@ -101,7 +99,7 @@ impl<'f> FunctionDocParser<'f> {
         let mut all_params = vec![];
         while let Some(start_param_loc) = start_param {
             let start_param_loc = start_param_loc + end_param_loc;
-            let end_param = doc_comment[start_param_loc + 1..].find("@");
+            let end_param = doc_comment[start_param_loc + 1..].find('@');
             if end_param.is_none() {
                 all_params.push(FunctionParam::new(doc_comment[start_param_loc..].trim())?);
                 break;
@@ -143,11 +141,11 @@ pub struct FunctionParam<'p> {
 impl<'p> FunctionParam<'p> {
     fn new(param_string: &'p str) -> Result<Self> {
         let start_type_declaration = param_string
-            .find("{")
+            .find('{')
             .context("There was no type declaration for the given param statement")?
             + 1;
         let end_type_declaration = param_string
-            .find("}")
+            .find('}')
             .context("Badly formatted type declaration for param statement")?;
 
         let param_type = param_string[start_type_declaration..end_type_declaration].trim();
@@ -198,17 +196,17 @@ pub struct FunctionReturn<'r> {
 impl<'r> FunctionReturn<'r> {
     fn new(return_string: &'r str) -> Result<Self> {
         let start_type_declaration = return_string
-            .find("{")
+            .find('{')
             .context("There was no type declaration for the given return statement")?
             + 1;
         let end_type_declaration = return_string
-            .find("}")
+            .find('}')
             .context("Badly formatted type declaration for return statement")?;
 
         let return_type = return_string[start_type_declaration..end_type_declaration].trim();
 
         let description = return_string[end_type_declaration + 1..].trim();
-        let description = if description == "" {
+        let description = if description.is_empty() {
             None
         } else {
             Some(description)
@@ -332,7 +330,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return {TEXT this is a return description"#;
 
-        assert_eq!(true, FunctionDocParser::get_return(input).is_err());
+        assert!(FunctionDocParser::get_return(input).is_err());
 
         let input = r#"This is the function description
 
@@ -341,7 +339,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return TEXT this is a return description"#;
 
-        assert_eq!(true, FunctionDocParser::get_return(input).is_err());
+        assert!(FunctionDocParser::get_return(input).is_err());
 
         let input = r#"This is the function description
 
@@ -350,7 +348,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return TEXT} this is a return description"#;
 
-        assert_eq!(true, FunctionDocParser::get_return(input).is_err());
+        assert!(FunctionDocParser::get_return(input).is_err());
     }
 
     #[test]
@@ -385,7 +383,7 @@ THIS IS JUST HERE FOR A BUFFER
 
 		@return {TEXT} this is a return description"#;
 
-        assert_eq!(true, FunctionDocParser::get_params(input).is_err());
+        assert!(FunctionDocParser::get_params(input).is_err());
 
         let input = r#"This is the function description
 
